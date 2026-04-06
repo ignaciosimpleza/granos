@@ -720,6 +720,33 @@ body {
 .tc-chip .tc-mes  { color: var(--text3); font-weight: 500; margin-bottom: 2px; }
 .tc-chip .tc-val  { color: var(--text);  font-weight: 700; font-size: 11px; }
 
+
+/* ─── LIVE CONFIG ACCORDION ─── */
+.live-config-accordion {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+.live-config-accordion summary {
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text3);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg2);
+}
+.live-config-accordion summary::-webkit-details-marker { display: none; }
+.live-config-accordion[open] summary { color: var(--text); border-bottom: 1px solid var(--border); }
+.live-config-body {
+  padding: 16px;
+}
+
 </style>
 </head>
 <body>
@@ -1179,42 +1206,112 @@ body {
 
 <!-- ═══════════ LIVE DATA ═══════════ -->
 <div id="tab-live" class="main">
+
+  <!-- Error banner -->
+  <div id="live-error-wrap"></div>
+
+  <!-- Top action bar -->
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;">
+    <button class="upd-btn" id="live-refresh-btn" onclick="fetchLiveAll()" style="padding:10px 20px;font-size:13px">
+      ⟳ Actualizar datos en vivo
+    </button>
+    <span id="live-ts" style="font-size:11px;color:var(--text3)"></span>
+    <button onclick="toggleLiveSettings()" style="margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:11px;color:var(--text3);cursor:pointer;font-family:'Sora',sans-serif">
+      ⚙ Parámetros
+    </button>
+  </div>
+
+  <!-- Collapsible settings panel -->
+  <div id="live-settings-panel" style="display:none;background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:18px">
+    <div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:0.5px;margin-bottom:12px">RETENCIONES (%)</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
+      <div>
+        <span style="font-size:9px;color:var(--text3);display:block;margin-bottom:3px">Soja</span>
+        <input type="number" class="upd-input" id="ret-soja"   step="0.5" value="24">
+      </div>
+      <div>
+        <span style="font-size:9px;color:var(--text3);display:block;margin-bottom:3px">Maíz</span>
+        <input type="number" class="upd-input" id="ret-maiz"   step="0.5" value="8.5">
+      </div>
+      <div>
+        <span style="font-size:9px;color:var(--text3);display:block;margin-bottom:3px">Trigo</span>
+        <input type="number" class="upd-input" id="ret-trigo"  step="0.5" value="7.5">
+      </div>
+      <div>
+        <span style="font-size:9px;color:var(--text3);display:block;margin-bottom:3px">Aceite</span>
+        <input type="number" class="upd-input" id="ret-aceite" step="0.5" value="22.5">
+      </div>
+      <div>
+        <span style="font-size:9px;color:var(--text3);display:block;margin-bottom:3px">Harina</span>
+        <input type="number" class="upd-input" id="ret-harina" step="0.5" value="22.5">
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);letter-spacing:0.5px;margin-bottom:12px">FOBBING (u$s/tn)</div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
+      <div>
+        <span style="font-size:9px;color:var(--text3);display:block;margin-bottom:3px">Soja</span>
+        <input type="number" class="upd-input" id="fob-soja"   step="1" value="13">
+      </div>
+      <div>
+        <span style="font-size:9px;color:var(--text3);display:block;margin-bottom:3px">Maíz</span>
+        <input type="number" class="upd-input" id="fob-maiz"   step="1" value="4">
+      </div>
+      <div>
+        <span style="font-size:9px;color:var(--text3);display:block;margin-bottom:3px">Trigo</span>
+        <input type="number" class="upd-input" id="fob-trigo"  step="1" value="4">
+      </div>
+      <div>
+        <span style="font-size:9px;color:var(--text3);display:block;margin-bottom:3px">Aceite</span>
+        <input type="number" class="upd-input" id="fob-aceite" step="1" value="9">
+      </div>
+      <div>
+        <span style="font-size:9px;color:var(--text3);display:block;margin-bottom:3px">Harina</span>
+        <input type="number" class="upd-input" id="fob-harina" step="1" value="7">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <div>
+        <span style="font-size:9px;color:var(--text3);display:block;margin-bottom:3px">Descuento impositivo (u$s/tn)</span>
+        <input type="number" class="upd-input" id="desc-imp" step="0.5" value="4" style="width:100px">
+      </div>
+      <button class="upd-btn" onclick="saveRetenciones()" style="margin-top:14px;font-size:11px;padding:6px 14px">Guardar y recalcular</button>
+    </div>
+  </div>
+
+  <!-- TC Futuro strip -->
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-header">
+      <span class="card-title">TC Dólar Futuro ROFEX · Ambito</span>
+      <span class="card-source" id="tc-source">—</span>
+    </div>
+    <div class="card-body" id="tc-strip-wrap">
+      <p style="color:var(--text4);font-size:12px">Cargando…</p>
+    </div>
+  </div>
+
+  <!-- FOB + FAS table -->
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-header">
+      <span class="card-title">FOB MAGYP + FAS Teórico</span>
+      <span class="card-source" id="fob-fecha-badge">—</span>
+    </div>
+    <div id="fob-live-wrap">
+      <p style="padding:16px;color:var(--text4);font-size:12px">Cargando…</p>
+    </div>
+  </div>
+
+  <!-- MATBA / Premio por vencimiento -->
+  <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px">
+    Soja — FAS teórico por vencimiento · Premio MATBA
+  </div>
+  <div id="matba-wrap">
+    <p style="color:var(--text4);font-size:12px;margin-bottom:16px">Cargando…</p>
+  </div>
+
+</div>
     <!-- Status / Errors -->
   <div id="live-error-wrap"></div>
 
-  <!-- Config row -->
-  <div class="upd-panel" style="margin-bottom:18px">
-    <div class="upd-section-title">Configuración de fuentes</div>
-    <div class="g2" style="margin-bottom:12px">
-      <div class="upd-field">
-        <label class="upd-label">Proxy URL (para FOB MAGYP)</label>
-        <div class="proxy-input-wrap">
-          <input type="text" id="proxy-url-input" placeholder="https://tu-proxy.vercel.app/api/fob">
-          <button class="upd-btn" onclick="saveProxyAndFetch()">Conectar</button>
-        </div>
-        <span style="font-size:9px;color:var(--text4);margin-top:4px">Necesario para eludir CORS de MAGYP. TC ROFEX no lo requiere.</span>
-      </div>
-      <div class="upd-field">
-        <label class="upd-label">Parámetros FAS</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:4px">
-          <div>
-            <span style="font-size:9px;color:var(--text3)">Ret. soja</span>
-            <input type="number" class="upd-input" id="ret-soja" step="0.5" value="24" style="margin-top:2px">
-          </div>
-          <div>
-            <span style="font-size:9px;color:var(--text3)">Ret. maíz</span>
-            <input type="number" class="upd-input" id="ret-maiz" step="0.5" value="8.5" style="margin-top:2px">
-          </div>
-          <div>
-            <span style="font-size:9px;color:var(--text3)">Ret. trigo</span>
-            <input type="number" class="upd-input" id="ret-trigo" step="0.5" value="7.5" style="margin-top:2px">
-          </div>
-        </div>
-        <button class="upd-btn sec" onclick="saveRetenciones()" style="margin-top:8px;font-size:10px;padding:5px 12px">Guardar parámetros</button>
-      </div>
-    </div>
-    <button class="upd-btn" onclick="fetchLiveAll()" style="margin-right:8px">⟳ Actualizar datos en vivo</button>
-  </div>
 
   <!-- TC Futuro strip -->
   <div class="card" style="margin-bottom:18px">
@@ -2311,20 +2408,31 @@ function refreshAll() {
 // DATOS EN VIVO — TC ROFEX · FOB MAGYP · FAS
 // ══════════════════════════════════════════
 
+const LIVE_PROXY_URL = 'https://granos.vercel.app/api/fob';
+
 const LIVE_CFG = {
-  get proxyUrl()  { return localStorage.getItem('smz_proxy') || ''; },
-  set proxyUrl(v) { localStorage.setItem('smz_proxy', v); },
+  proxyUrl: LIVE_PROXY_URL,
   get retenciones() {
     return {
-      soja:   (parseFloat(localStorage.getItem('smz_ret_soja'))  || 24)   / 100,
-      aceite: 0.225,
-      harina: 0.225,
-      maiz:   (parseFloat(localStorage.getItem('smz_ret_maiz'))  || 8.5)  / 100,
-      trigo:  (parseFloat(localStorage.getItem('smz_ret_trigo')) || 7.5)  / 100,
+      soja:   (parseFloat(localStorage.getItem('smz_ret_soja'))   || 24)   / 100,
+      aceite: (parseFloat(localStorage.getItem('smz_ret_aceite')) || 22.5) / 100,
+      harina: (parseFloat(localStorage.getItem('smz_ret_harina')) || 22.5) / 100,
+      maiz:   (parseFloat(localStorage.getItem('smz_ret_maiz'))   || 8.5)  / 100,
+      trigo:  (parseFloat(localStorage.getItem('smz_ret_trigo'))  || 7.5)  / 100,
     };
   },
-  fobbing: {soja:13, aceite:9, harina:7, maiz:4, trigo:4},
-  descImp: 4,
+  get fobbing() {
+    return {
+      soja:   parseFloat(localStorage.getItem('smz_fob_soja'))   || 13,
+      aceite: parseFloat(localStorage.getItem('smz_fob_aceite')) || 9,
+      harina: parseFloat(localStorage.getItem('smz_fob_harina')) || 7,
+      maiz:   parseFloat(localStorage.getItem('smz_fob_maiz'))   || 4,
+      trigo:  parseFloat(localStorage.getItem('smz_fob_trigo'))  || 4,
+    };
+  },
+  get descImp() {
+    return parseFloat(localStorage.getItem('smz_desc_imp')) || 4;
+  },
 };
 
 const LIVE = {
@@ -2574,18 +2682,17 @@ function renderLiveTab() {
       : '';
   }
 
-  // Pre-fill proxy input
-  const proxyInput = document.getElementById('proxy-url-input');
-  if(proxyInput && !proxyInput.value) proxyInput.value = LIVE_CFG.proxyUrl;
-
-  // Pre-fill retenciones
-  ['soja','maiz','trigo'].forEach(g => {
-    const el = document.getElementById('ret-'+g);
-    if(el && !el.dataset.touched) {
-      const stored = localStorage.getItem('smz_ret_'+g);
-      el.value = stored || {soja:24,maiz:8.5,trigo:7.5}[g];
-    }
+  // Pre-fill all settings inputs
+  const retDefaults = {soja:24, maiz:8.5, trigo:7.5, aceite:22.5, harina:22.5};
+  const fobDefaults = {soja:13, maiz:4,   trigo:4,   aceite:9,     harina:7};
+  ['soja','maiz','trigo','aceite','harina'].forEach(g => {
+    const elR = document.getElementById('ret-'+g);
+    if(elR) elR.value = localStorage.getItem('smz_ret_'+g) || retDefaults[g];
+    const elF = document.getElementById('fob-'+g);
+    if(elF) elF.value = localStorage.getItem('smz_fob_'+g) || fobDefaults[g];
   });
+  const diEl = document.getElementById('desc-imp');
+  if(diEl) diEl.value = localStorage.getItem('smz_desc_imp') || 4;
 
   renderTCStrip();
   renderFOBLiveTable();
@@ -2746,26 +2853,49 @@ function setMatba(prod, key, val) {
   LIVE.matba[prod][key] = val !== '' ? parseFloat(val) : null;
 }
 
-function saveProxyAndFetch() {
-  const input = document.getElementById('proxy-url-input');
-  if(input) {
-    LIVE_CFG.proxyUrl = input.value.trim();
-  }
-  fetchLiveAll();
-}
-
 function saveRetenciones() {
-  ['soja','maiz','trigo'].forEach(g => {
-    const el = document.getElementById('ret-'+g);
-    if(el) {
-      el.dataset.touched = '1';
-      localStorage.setItem('smz_ret_'+g, el.value);
-    }
+  ['soja','maiz','trigo','aceite','harina'].forEach(g => {
+    const elR = document.getElementById('ret-'+g);
+    if(elR) localStorage.setItem('smz_ret_'+g, elR.value);
+    const elF = document.getElementById('fob-'+g);
+    if(elF) localStorage.setItem('smz_fob_'+g, elF.value);
   });
-  if(LIVE.loaded) applyLiveToUI();
-  alert('✓ Parámetros actualizados');
+  const di = document.getElementById('desc-imp');
+  if(di) localStorage.setItem('smz_desc_imp', di.value);
+  if(LIVE.loaded) { applyLiveToUI(); renderLiveTab(); }
 }
 
+function toggleLiveSettings() {
+  const p = document.getElementById('live-settings-panel');
+  if(p) p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+
+
+function saveConfigAndRecalc() {
+  ['soja','aceite','harina','maiz','trigo'].forEach(g => {
+    const rEl = document.getElementById('ret-'+g);
+    if(rEl) localStorage.setItem('smz_ret_'+g, rEl.value);
+    const fEl = document.getElementById('fob-'+g);
+    if(fEl) localStorage.setItem('smz_fob_'+g, fEl.value);
+  });
+  const dEl = document.getElementById('desc-imp');
+  if(dEl) localStorage.setItem('smz_desc_imp', dEl.value);
+  if(LIVE.loaded) { renderFOBLiveTable(); renderMatbaCards(); applyLiveToUI(); }
+  const btn = event?.target;
+  if(btn){ const orig=btn.textContent; btn.textContent='✓ Guardado'; setTimeout(()=>{btn.textContent=orig;},1500); }
+}
+
+function resetConfig() {
+  const retD={soja:24,aceite:22.5,harina:22.5,maiz:8.5,trigo:7.5};
+  const fobD={soja:13,aceite:9,harina:7,maiz:4,trigo:4};
+  ['soja','aceite','harina','maiz','trigo'].forEach(g=>{
+    const r=document.getElementById('ret-'+g); if(r) r.value=retD[g];
+    const f=document.getElementById('fob-'+g); if(f) f.value=fobD[g];
+  });
+  const d=document.getElementById('desc-imp'); if(d) d.value=4;
+  saveConfigAndRecalc();
+}
 
 // ══════════════════════════════════════════
 // INIT
@@ -2774,15 +2904,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   updateTs();
   renderOverview();
   setInterval(refreshAll, 300000);
-  // Auto-fetch live data if proxy is already configured
-  if(LIVE_CFG.proxyUrl) {
-    fetchLiveAll();
-  } else {
-    // Still try TC even without proxy (no CORS)
-    fetchTCFuturo()
-      .then(()=>{ setLiveIndicator('partial'); })
-      .catch(()=>{});
-  }
+  // Auto-fetch live data (proxy hardcoded)
+  fetchLiveAll();
 });
 
 </script>
