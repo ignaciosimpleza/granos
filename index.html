@@ -2509,8 +2509,9 @@ async function fetchLiveAll() {
 
 // ── TC Futuro ROFEX (Ambito — no requiere proxy) ───────────────────
 async function fetchTCFuturo() {
-  const res = await fetch('https://mercados.ambito.com/dolarfuturo/datos', {
-    signal: AbortSignal.timeout(8000)
+  // Routed through proxy to avoid CORS from Ambito
+  const res = await fetch('https://granos.vercel.app/api/tc', {
+    signal: AbortSignal.timeout(10000)
   });
   if(!res.ok) throw new Error('HTTP ' + res.status);
   const raw = await res.json();
@@ -2551,16 +2552,29 @@ async function fetchFOBMAGYP() {
 
     try {
       const url = `${proxy}?fecha=${encodeURIComponent(fecha)}`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-      if(!res.ok) continue;
+      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+      if(!res.ok) {
+        console.warn(`[FOB] ${fecha}: HTTP ${res.status}`);
+        continue;
+      }
       const data  = await res.json();
-      const posts = data.posts || data;
+      if(data.parse_error) {
+        console.warn(`[FOB] ${fecha}: parse error, raw:`, data.raw_preview);
+        continue;
+      }
+      const posts = Array.isArray(data) ? data : (data.posts || []);
       if(Array.isArray(posts) && posts.length > 0) {
         parseFOB(posts, fecha);
         return;
+      } else {
+        if(i === 0) console.info(`[FOB] ${fecha}: sin datos (posts vacíos). Keys: ${Object.keys(data).join(',')}`);
       }
-    } catch(e) { /* try next day */ }
+    } catch(e) {
+      console.warn(`[FOB] ${fecha}: error`, e.message);
+    }
   }
+  // Debug: log last attempted response info
+  console.warn('[FOB] Sin datos en últimos 14 días. Verificar proxy /api/fob?fecha=DD/MM/AAAA');
   throw new Error('Sin datos FOB en los últimos 14 días');
 }
 
