@@ -800,7 +800,7 @@ body {
       <span class="live-txt">Sin datos</span>
     </div>
     <span id="last-update"></span>
-    <button class="refresh-btn" onclick="refreshAll()">↻ Actualizar</button>
+    <button class="refresh-btn" onclick="fetchLiveAll()">↻ Actualizar</button>
   </div>
 </header>
 
@@ -2387,17 +2387,6 @@ function updateTs() {
 }
 
 function refreshAll() {
-  // Simulate small price drift
-  Object.keys(DB).forEach(gr=>{
-    const drift = (Math.random()-0.5)*6;
-    const base = parseFloat(DB[gr].kpis[0].val.replace(',','.'));
-    const newP = (base+drift).toFixed(1);
-    DB[gr].kpis[0].val = newP.replace('.',',');
-    DB[gr].kpis[0].chg = (drift>=0?'+':'')+((drift/base)*100).toFixed(1)+'%';
-    DB[gr].kpis[0].up = drift>=0;
-    DB[gr].ph.push(parseFloat(newP));
-    DB[gr].ph.shift();
-  });
   updateTs();
   destroyAll();
   renderTab(document.querySelector('.main.active').id.replace('tab-',''));
@@ -2511,6 +2500,7 @@ async function fetchLiveAll() {
   LIVE.fromCache = { tc: false, fob: false };
   setLiveIndicator('loading');
 
+  try {
   const [tcResult, fobResult] = await Promise.allSettled([
     fetchTCFuturo(),
     fetchFOBMAGYP(),
@@ -2541,7 +2531,6 @@ async function fetchLiveAll() {
     }
   }
 
-  LIVE.loading = false;
   LIVE.ts      = new Date();
   LIVE.loaded  = LIVE.tcFuturos.length > 0 || Object.keys(LIVE.fob).length > 0;
 
@@ -2567,6 +2556,13 @@ async function fetchLiveAll() {
 
   const active = document.querySelector('.main.active');
   if(active && active.id === 'tab-live') renderLiveTab();
+
+  } catch(e) {
+    setLiveIndicator('error');
+    console.error('[fetchLiveAll]', e);
+  } finally {
+    LIVE.loading = false;
+  }
 }
 
 // ── TC Futuro ROFEX ────────────────────────────────────────────────
@@ -2988,7 +2984,7 @@ function resetConfig() {
 document.addEventListener('DOMContentLoaded',()=>{
   updateTs();
   renderOverview();
-  setInterval(refreshAll, 300000);
+  setInterval(fetchLiveAll, 300000);
   // Pre-load cache immediately (instant display while real fetch runs)
   (function preloadCache() {
     const tcCache  = loadCache(CACHE_KEY_TC);
