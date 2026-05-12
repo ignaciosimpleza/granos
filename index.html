@@ -2572,9 +2572,14 @@ async function fetchTCFuturo() {
   });
   if(!res.ok) throw new Error('HTTP ' + res.status);
   const raw = await res.json();
+  console.log('[TC] respuesta raw:', JSON.stringify(raw).substring(0, 400));
 
   LIVE.tcFuturos = [];
-  const arr = Array.isArray(raw) ? raw : (raw.data || raw.datos || raw.rows || []);
+  // API returns {"1":{...},"3":{...},...} — plain object with numeric keys
+  const arr = Array.isArray(raw) ? raw
+    : (raw.data || raw.datos || raw.rows)
+      ? (raw.data || raw.datos || raw.rows)
+      : Object.values(raw);
 
   arr.forEach(item => {
     let contrato, precio;
@@ -2582,7 +2587,7 @@ async function fetchTCFuturo() {
       [contrato, precio] = [item[0], item[1]];
     } else {
       contrato = item.contrato || item.Contrato || item.nombre || item.denominacion || item.descripcion;
-      precio   = item.ultimo   || item.Ultimo   || item.precio || item.cierre || item.last;
+      precio   = item.venta    || item.ultimo   || item.Ultimo || item.precio || item.cierre || item.last;
     }
     if(!contrato || String(contrato).toLowerCase() === 'contrato') return;
     const parsed = parseMesAno(String(contrato));
@@ -2592,8 +2597,11 @@ async function fetchTCFuturo() {
 
   LIVE.tcFuturos.sort((a,b) => a.año !== b.año ? a.año - b.año : a.mes - b.mes);
 
-  // ✅ Guardar en caché si hay datos válidos
-  if(LIVE.tcFuturos.length > 0) saveCache(CACHE_KEY_TC, LIVE.tcFuturos);
+  if(LIVE.tcFuturos.length === 0) {
+    const preview = JSON.stringify(raw).substring(0, 200);
+    throw new Error('Sin contratos parseables. Respuesta: ' + preview);
+  }
+  saveCache(CACHE_KEY_TC, LIVE.tcFuturos);
 }
 
 // ── FOB MAGYP ─────────────────────────────────────────────────────
@@ -2648,8 +2656,11 @@ function parseFOB(posts, fecha) {
 
 // ── Helpers ────────────────────────────────────────────────────────
 function parseMesAno(str) {
-  const map = {ene:1,feb:2,mar:3,abr:4,may:5,jun:6,jul:7,ago:8,sep:9,oct:10,nov:11,dic:12};
-  const m   = str.toLowerCase().match(/([a-záéíóú]{2,3})[\s\-\/]?(\d{2,4})/);
+  const map = {ene:1,feb:2,mar:3,abr:4,may:5,jun:6,jul:7,ago:8,sep:9,oct:10,nov:11,dic:12,
+               jan:1,apr:4,aug:8,dec:12};
+  const s   = str.toLowerCase();
+  // Handles: "Dólar Mayo 2026", "DLR/MAY25", "May 25", "May2025"
+  const m   = s.match(/([a-záéíóú]{3,10})[\s\-\/]?(\d{2,4})/);
   if(!m) return null;
   const mes = map[m[1].substring(0,3)];
   if(!mes)  return null;
@@ -2778,7 +2789,9 @@ function renderTCStrip() {
   if(!wrap) return;
 
   if(!LIVE.tcFuturos.length) {
-    wrap.innerHTML = '<p style="color:var(--text4);font-size:12px">Sin datos — presioná "Actualizar datos en vivo"</p>';
+    const tcErr = LIVE.errors.find(e => e.toLowerCase().includes('tc'));
+    const msg   = tcErr ? `⚠ ${tcErr}` : 'Sin datos TC — presioná Actualizar';
+    wrap.innerHTML = `<p style="color:var(--terracota);font-size:12px;word-break:break-all">${msg}</p>`;
     return;
   }
 
