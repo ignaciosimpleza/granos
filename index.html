@@ -2592,8 +2592,11 @@ async function fetchTCFuturo() {
 
   LIVE.tcFuturos.sort((a,b) => a.año !== b.año ? a.año - b.año : a.mes - b.mes);
 
-  // ✅ Guardar en caché si hay datos válidos
-  if(LIVE.tcFuturos.length > 0) saveCache(CACHE_KEY_TC, LIVE.tcFuturos);
+  if(LIVE.tcFuturos.length === 0) {
+    const preview = JSON.stringify(raw).substring(0, 200);
+    throw new Error('Sin contratos parseables. Respuesta: ' + preview);
+  }
+  saveCache(CACHE_KEY_TC, LIVE.tcFuturos);
 }
 
 // ── FOB MAGYP ─────────────────────────────────────────────────────
