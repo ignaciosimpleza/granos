@@ -1255,6 +1255,17 @@ body {
     </div>
   </div>
 
+  <!-- Dólar plaza -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header">
+      <span class="card-title">Dólar — Plaza local</span>
+      <span class="card-source" id="dolar-source">—</span>
+    </div>
+    <div class="card-body" id="dolar-strip-wrap">
+      <p style="color:var(--text4);font-size:12px">Cargando…</p>
+    </div>
+  </div>
+
   <!-- CME Spot reference -->
   <div class="card" style="margin-bottom:18px">
     <div class="card-header">
@@ -2341,19 +2352,20 @@ const LIVE_CFG = {
 };
 
 const LIVE = {
-  tcFuturos: [],   // [{contrato, label, mes, año, tc}]
-  fob:       {},   // {soja:[{precio,mesDesde,añoDesde,mesHasta,añoHasta}], ...}
-  matba:     {},   // {soja:{'5_2026': 270, '11_2026': null, ...}}  (manual override)
-  matbaAuto: {},   // {soja:[{mes,año,key,precio}], maiz:[...], trigo:[...], girasol:[...]}
-  cmeSpot:   {},   // {soja:{val,fecha}, maiz:{val,fecha}, trigo:{val,fecha}, wti:{...}, oro:{...}}
-  fobFecha:  null,
-  cmeFecha:  null,
+  tcFuturos:  [],   // [{contrato, label, mes, año, tc}]
+  fob:        {},   // {soja:[{precio,mesDesde,añoDesde,mesHasta,añoHasta}], ...}
+  matba:      {},   // {soja:{'5_2026': 270, ...}}  (manual override)
+  matbaAuto:  {},   // {soja:[{mes,año,key,precio}], maiz:[...], trigo:[...], girasol:[...]}
+  cmeSpot:    {},   // {soja:{val,fecha,nombre,unit}, maiz:{...}, ...}  (internacional CME)
+  dolarPlaza: {},   // {dolar_mayor:{...}, dolar_mep:{...}, ...}        (dólar plaza ARG)
+  fobFecha:   null,
+  cmeFecha:   null,
   matbaFecha: null,
-  loaded:    false,
-  loading:   false,
-  errors:    [],
-  ts:        null,
-  fromCache: { tc: false, fob: false, cme: false, matba: false },
+  loaded:     false,
+  loading:    false,
+  errors:     [],
+  ts:         null,
+  fromCache:  { tc: false, fob: false, cme: false, matba: false },
 };
 
 const NCM_MAP = {
@@ -2458,13 +2470,16 @@ async function fetchLiveAll() {
   // If CME failed, try cache
   if(cmeResult.status === 'rejected') {
     const cached = loadCache(CACHE_KEY_CME);
-    if(cached && Object.keys(cached.data?.cmeSpot || {}).length > 0) {
-      LIVE.cmeSpot       = cached.data.cmeSpot;
+    const hasAny = cached && (Object.keys(cached.data?.cmeSpot || {}).length > 0
+                           || Object.keys(cached.data?.dolarPlaza || {}).length > 0);
+    if(hasAny) {
+      LIVE.cmeSpot       = cached.data.cmeSpot   || {};
+      LIVE.dolarPlaza    = cached.data.dolarPlaza || {};
       LIVE.cmeFecha      = cached.data.fecha;
       LIVE.fromCache.cme = true;
-      LIVE.errors.push('CME spot: usando último dato (' + cacheAge(cached.ts) + ')');
+      LIVE.errors.push('SPOT: usando último dato (' + cacheAge(cached.ts) + ')');
     } else {
-      LIVE.errors.push('CME spot: ' + cmeResult.reason?.message);
+      LIVE.errors.push('SPOT: ' + cmeResult.reason?.message);
     }
   }
 
@@ -2552,29 +2567,32 @@ async function fetchTCFuturo() {
   saveCache(CACHE_KEY_TC, LIVE.tcFuturos);
 }
 
-// ── CME Spot (Soja Chicago / Maíz Chicago / WTI / Oro) — A3 Info / Home ──
+// ── SPOT internacional + dólar plaza — A3 Info / Home ──
 async function fetchCMESpot() {
   const res = await fetch(`${A3_SHEETS_URL}?tab=home`, { signal: AbortSignal.timeout(10000) });
   if(!res.ok) throw new Error('HTTP ' + res.status);
   const json = await res.json();
 
-  LIVE.cmeSpot = {};
+  LIVE.cmeSpot   = {};
+  LIVE.dolarPlaza = {};
   (json.spot || []).forEach(s => {
     if(!s.key || !Number.isFinite(s.valor)) return;
-    LIVE.cmeSpot[s.key] = {
+    const item = {
       val:    s.valor,
       fecha:  s.fechaCotizacion || null,
       nombre: s.nombre,
       unit:   s.unit,
     };
+    if(s.grupo === 'dolar') LIVE.dolarPlaza[s.key] = item;
+    else                    LIVE.cmeSpot[s.key]    = item;
   });
 
   LIVE.cmeFecha = json.actualizado || null;
 
-  if(Object.keys(LIVE.cmeSpot).length === 0) {
+  if(Object.keys(LIVE.cmeSpot).length === 0 && Object.keys(LIVE.dolarPlaza).length === 0) {
     throw new Error('Sin SPOT reconocido en A3 Info / Home');
   }
-  saveCache(CACHE_KEY_CME, { cmeSpot: LIVE.cmeSpot, fecha: LIVE.cmeFecha });
+  saveCache(CACHE_KEY_CME, { cmeSpot: LIVE.cmeSpot, dolarPlaza: LIVE.dolarPlaza, fecha: LIVE.cmeFecha });
 }
 
 // ── MATba Forward (Soja, Maíz, Trigo, Girasol) — A3 Info / Agropecuarios ──
@@ -2819,21 +2837,21 @@ function renderLiveTab() {
   const diEl = document.getElementById('desc-imp');
   if(diEl) diEl.value = localStorage.getItem('smz_desc_imp') || 4;
 
+  renderDolarPlazaStrip();
   renderCMESpotStrip();
   renderTCStrip();
   renderFOBLiveTable();
   renderMatbaCards();
 }
 
-// ── CME spot strip ────────────────────────────────────────────────
-function renderCMESpotStrip() {
-  const wrap = document.getElementById('cme-strip-wrap');
-  const src  = document.getElementById('cme-source');
+// Helper para renderizar un strip de chips (CME spot o dólar plaza)
+function renderSpotStrip(wrapId, sourceId, dataObj, order, defaultFmt) {
+  const wrap = document.getElementById(wrapId);
+  const src  = document.getElementById(sourceId);
   if(!wrap) return;
 
-  if(Object.keys(LIVE.cmeSpot).length === 0) {
-    const cmeErr = LIVE.errors.find(e => e.toLowerCase().includes('cme'));
-    wrap.innerHTML = `<p style="color:var(--terracota);font-size:12px">${cmeErr || 'Sin datos CME — presioná Actualizar'}</p>`;
+  if(Object.keys(dataObj).length === 0) {
+    wrap.innerHTML = '<p style="color:var(--text4);font-size:12px">Sin datos disponibles</p>';
     if(src) src.textContent = '—';
     return;
   }
@@ -2843,30 +2861,44 @@ function renderCMESpotStrip() {
       src.innerHTML = '⚠ Último dato cacheado';
       src.style.color = 'var(--amarillo-pastel)';
     } else {
-      src.innerHTML = `Fuente: <a href="${A3_SHEETS_HUMAN_URL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">A3 Info · CME (Matba Rofex)</a>`;
+      src.innerHTML = `Fuente: <a href="${A3_SHEETS_HUMAN_URL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">A3 Info · Matba Rofex</a>`;
       src.style.color = '';
     }
   }
 
-  const ORDER = [
-    { k:'soja',  lbl:'Soja Chicago',  unit:'USD/Tn' },
-    { k:'maiz',  lbl:'Maíz Chicago',  unit:'USD/Tn' },
-    { k:'trigo', lbl:'Trigo Chicago', unit:'USD/Tn' },
-    { k:'wti',   lbl:'Petróleo WTI',  unit:'USD/bbl' },
-    { k:'oro',   lbl:'Oro CME',       unit:'USD/oz'  },
-  ];
-
-  const chips = ORDER.filter(o => LIVE.cmeSpot[o.k]).map(o => {
-    const c = LIVE.cmeSpot[o.k];
+  const chips = order.filter(o => dataObj[o.k]).map(o => {
+    const c   = dataObj[o.k];
+    const fmt = o.fmt || defaultFmt;
     return `
       <div class="tc-chip">
         <div class="tc-mes">${o.lbl}</div>
-        <div class="tc-val">${c.val.toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:2})}</div>
-        <div style="font-size:9px;color:var(--text4);margin-top:2px">${o.unit}</div>
+        <div class="tc-val">${fmt(c.val)}</div>
+        <div style="font-size:9px;color:var(--text4);margin-top:2px">${c.unit || ''}</div>
       </div>`;
   }).join('');
 
   wrap.innerHTML = `<div class="tc-curve-wrap">${chips}</div>`;
+}
+
+function renderCMESpotStrip() {
+  renderSpotStrip('cme-strip-wrap', 'cme-source', LIVE.cmeSpot, [
+    { k:'soja',  lbl:'Soja Chicago' },
+    { k:'maiz',  lbl:'Maíz Chicago' },
+    { k:'trigo', lbl:'Trigo Chicago' },
+    { k:'wti',   lbl:'Petróleo WTI' },
+    { k:'oro',   lbl:'Oro CME' },
+  ], v => v.toLocaleString('es-AR',{minimumFractionDigits:1, maximumFractionDigits:2}));
+}
+
+function renderDolarPlazaStrip() {
+  renderSpotStrip('dolar-strip-wrap', 'dolar-source', LIVE.dolarPlaza, [
+    { k:'dolar_mayor', lbl:'Mayorista' },
+    { k:'dolar_bna',   lbl:'BNA' },
+    { k:'dolar_mep',   lbl:'MEP' },
+    { k:'dolar_ccl',   lbl:'CCL' },
+    { k:'dolar_blue',  lbl:'Blue' },
+    { k:'dolar_rofex', lbl:'Garantía ROFEX' },
+  ], v => '$' + v.toLocaleString('es-AR',{minimumFractionDigits:2, maximumFractionDigits:2}));
 }
 
 // ── TC strip ──────────────────────────────────────────────────────
