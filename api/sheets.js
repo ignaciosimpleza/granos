@@ -138,27 +138,41 @@ function parseAgropecuarios(rows) {
   };
 }
 
+// Strip diacritics + lowercase + collapse spaces — para matching robusto
+function norm(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function parseHome(rows) {
-  // Defensivo: busca celdas que coincidan con nombres SPOT conocidos en cualquier columna/fila,
-  // y toma el siguiente valor numérico como precio. Inmune a cambios de layout en la planilla.
+  // Defensivo: matchea por substring sobre texto normalizado (sin acentos).
+  // Toma el primer número que aparece a la derecha del nombre en la misma fila.
   const SPOT_PATTERNS = [
-    { rx: /^petr[oó]leo crudo wti cme$/i, key: 'wti',   unit: 'USD/bbl' },
-    { rx: /^soja chicago$/i,              key: 'soja',  unit: 'USD/Tn'  },
-    { rx: /^ma[ií]z chicago$/i,           key: 'maiz',  unit: 'USD/Tn'  },
-    { rx: /^trigo chicago$/i,             key: 'trigo', unit: 'USD/Tn'  },
-    { rx: /^oro cme$/i,                   key: 'oro',   unit: 'USD/oz'  },
+    { needles: ['petroleo crudo wti', 'wti cme'], key: 'wti',   unit: 'USD/bbl' },
+    { needles: ['soja chicago'],                  key: 'soja',  unit: 'USD/Tn'  },
+    { needles: ['maiz chicago'],                  key: 'maiz',  unit: 'USD/Tn'  },
+    { needles: ['trigo chicago'],                 key: 'trigo', unit: 'USD/Tn'  },
+    { needles: ['oro cme'],                       key: 'oro',   unit: 'USD/oz'  },
   ];
 
   const spot = [];
   const seen = new Set();
   let ultimaAct = null;
+  const sampleCells = [];   // diagnóstico: primeras N celdas no-vacías
 
   for (const row of rows) {
     if (!Array.isArray(row)) continue;
     for (let i = 0; i < row.length; i++) {
       const cell = String(row[i] || '').trim();
       if (!cell) continue;
-      const pat = SPOT_PATTERNS.find(p => p.rx.test(cell));
+      if (sampleCells.length < 60) sampleCells.push(cell);
+
+      const cellN = norm(cell);
+      const pat = SPOT_PATTERNS.find(p => p.needles.some(n => cellN.includes(n)));
       if (!pat || seen.has(pat.key)) continue;
 
       // Próximo valor numérico en la misma fila
@@ -176,30 +190,34 @@ function parseHome(rows) {
 
       if (valor !== null) {
         seen.add(pat.key);
-        spot.push({
-          nombre: cell,
-          key: pat.key,
-          unit: pat.unit,
-          valor,
-          fechaCotizacion,
-        });
+        spot.push({ nombre: cell, key: pat.key, unit: pat.unit, valor, fechaCotizacion });
       }
-      break;  // una coincidencia por fila
+      break;
     }
 
-    // Capturar timestamp de "Fecha y Hora de Última Actualización" si aparece
     if (!ultimaAct) {
       const found = row?.find(c => typeof c === 'string' && /^\d{1,2}-\d{1,2}-\d{4}\s*\|/.test(c));
       if (found) ultimaAct = found;
     }
   }
 
-  return {
+  const result = {
     fuente:      'A3 Info · Home / Cotizaciones SPOT (Matba Rofex)',
     fuenteUrl:   `${SHEET_URL}/edit#gid=${TABS.home.gid}`,
     actualizado: ultimaAct,
     spot,
   };
+
+  // Si no encontramos nada, incluir muestra para diagnóstico
+  if (spot.length === 0) {
+    result.diag = {
+      mensaje: 'Sin SPOT reconocido — pegá el siguiente sampleCells al desarrollador',
+      sampleCells: sampleCells.slice(0, 30),
+      totalRows: rows.length,
+    };
+  }
+
+  return result;
 }
 
 // Genérico para tabs sin parser específico
