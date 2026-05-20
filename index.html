@@ -439,7 +439,14 @@ body {
 .price-table td.val { font-weight:700; color:var(--gris-oscuro); font-size:13px; }
 
 /* ─── CHART WRAPPER ─── */
-.chart-wrap { padding: 16px 16px 12px; }
+.chart-wrap {
+  padding: 10px 14px 8px;
+  height: var(--chart-h, 180px);
+  position: relative;
+}
+.chart-wrap.compact   { --chart-h: 130px; }
+.chart-wrap.tall      { --chart-h: 240px; }
+.chart-wrap canvas    { width: 100% !important; height: 100% !important; }
 
 /* ─── REF LABELS ─── */
 .ref-labels { display:flex; gap:16px; padding:8px 16px; flex-wrap:wrap; }
@@ -1659,7 +1666,7 @@ const DB = {
 function baseOpts(extra={}) {
   return {
     responsive:true,
-    maintainAspectRatio:true,
+    maintainAspectRatio:false,
     plugins:{
       legend:{labels:{color:'#6b7280',font:{size:10},boxWidth:12,padding:10}},
       tooltip:{
@@ -2544,29 +2551,18 @@ async function fetchCMESpot() {
   if(!res.ok) throw new Error('HTTP ' + res.status);
   const json = await res.json();
 
-  // Mapeo nombres SPOT de A3 Info → claves internas
-  const NAME_MAP = {
-    'soja chicago':         'soja',
-    'maíz chicago':         'maiz',
-    'maiz chicago':         'maiz',
-    'trigo chicago':        'trigo',
-    'petróleo crudo wti cme': 'wti',
-    'petroleo crudo wti cme': 'wti',
-    'oro cme':              'oro',
-  };
-
   LIVE.cmeSpot = {};
   (json.spot || []).forEach(s => {
-    const key = NAME_MAP[String(s.nombre || '').toLowerCase().trim()];
-    if(!key) return;
-    LIVE.cmeSpot[key] = {
+    if(!s.key || !Number.isFinite(s.valor)) return;
+    LIVE.cmeSpot[s.key] = {
       val:    s.valor,
       fecha:  s.fechaCotizacion || null,
       nombre: s.nombre,
+      unit:   s.unit,
     };
   });
 
-  LIVE.cmeFecha = json.spot?.[0]?.ultimaActualizacion || null;
+  LIVE.cmeFecha = json.actualizado || null;
 
   if(Object.keys(LIVE.cmeSpot).length === 0) {
     throw new Error('Sin SPOT reconocido en A3 Info / Home');
@@ -2717,26 +2713,40 @@ function calcFAS(prod, mes, año) {
   return { fob, retU, fobbing, fasUSD, tc, fasARS: tc ? fasUSD * tc : null };
 }
 
-function nextVencSoja(n=3) {
-  // Soja opera en Mayo (5) y Noviembre (11)
+// Lista de vencimientos futuros disponibles para un grano (desde A3 Info, sin duplicados)
+function availableVencs(grain) {
+  const arr = LIVE.matbaAuto[grain] || [];
   const now = new Date();
-  let mes = now.getMonth()+1, año = now.getFullYear();
-  const result = [];
-  // advance to next valid vencimiento
-  let candidate_mes, candidate_año;
-  if(mes < 5)       { candidate_mes=5;  candidate_año=año; }
-  else if(mes <= 5) { candidate_mes=5;  candidate_año=año; } // include current month May
-  else if(mes < 11) { candidate_mes=11; candidate_año=año; }
-  else              { candidate_mes=11; candidate_año=año; }
+  const tNow = now.getFullYear() * 100 + (now.getMonth() + 1);
+  const seen = new Set();
+  return arr
+    .filter(c => (c.año * 100 + c.mes) >= tNow)
+    .filter(c => { if(seen.has(c.key)) return false; seen.add(c.key); return true; })
+    .map(c => ({
+      mes:   c.mes,
+      año:   c.año,
+      key:   c.key,
+      label: MES_LABEL[c.mes] + ' ' + String(c.año).slice(-2),
+    }));
+}
 
-  while(result.length < n) {
-    result.push({mes: candidate_mes, año: candidate_año,
-      label: MES_LABEL[candidate_mes]+' '+String(candidate_año).slice(-2),
-      key: candidate_mes+'_'+candidate_año});
-    if(candidate_mes === 5) { candidate_mes=11; }
-    else                    { candidate_mes=5;  candidate_año++; }
-  }
-  return result;
+// Selección persistente de qué 3 vencimientos mostrar en las cards MATba de Soja
+const VENC_SELECTION_KEY = 'smz_soja_vencs';
+function getSojaVencSelection() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(VENC_SELECTION_KEY) || 'null');
+    if(Array.isArray(stored) && stored.length === 3) return stored;
+  } catch(e) {}
+  // Default: primeros 3 futuros disponibles
+  const avail = availableVencs('soja');
+  return avail.slice(0, 3).map(v => v.key);
+}
+function setSojaVencSelection(idx, key) {
+  const cur = getSojaVencSelection().slice();
+  while(cur.length < 3) cur.push(null);
+  cur[idx] = key;
+  localStorage.setItem(VENC_SELECTION_KEY, JSON.stringify(cur));
+  renderMatbaCards();
 }
 
 // ── Apply live data to main DB ─────────────────────────────────────
@@ -2974,7 +2984,20 @@ function renderMatbaCards() {
     }
   }
 
-  const venc = nextVencSoja(3);
+  const avail   = availableVencs('soja');
+  const selKeys = getSojaVencSelection();
+
+  // Si no hay disponibles aún, mensaje placeholder
+  if(avail.length === 0) {
+    wrap.innerHTML = '<p style="color:var(--text4);font-size:12px;padding:16px">Esperando datos MATba de A3 Info…</p>';
+    return;
+  }
+
+  // Resolver cada slot: si la key seleccionada existe en disponibles, usar; si no, primer disponible
+  const venc = selKeys.map((k, idx) => {
+    const found = avail.find(v => v.key === k);
+    return found || avail[Math.min(idx, avail.length - 1)];
+  });
 
   // Helper: prioriza override manual; si no, usa auto de A3 Info
   function getMatba(mes, año, key) {
@@ -2985,7 +3008,10 @@ function renderMatbaCards() {
   }
 
   wrap.innerHTML = `<div class="g3" style="margin-bottom:0">
-    ${venc.map(v => {
+    ${venc.map((v, idx) => {
+      const options = avail.map(a =>
+        `<option value="${a.key}" ${a.key === v.key ? 'selected' : ''}>${a.label}</option>`
+      ).join('');
       const r      = calcFAS('soja', v.mes, v.año);
       const tc     = getTC(v.mes, v.año);
       const matInfo = getMatba(v.mes, v.año, v.key);
@@ -2999,7 +3025,13 @@ function renderMatbaCards() {
           : '';
 
       return `<div class="fas-card">
-        <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px">${v.label}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px">
+          <span style="font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase">Vencimiento</span>
+          <select onchange="setSojaVencSelection(${idx}, this.value)"
+            style="flex:1;max-width:120px;border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:12px;font-weight:700;color:var(--text);font-family:'Sora',sans-serif;background:var(--bg2);outline:none;cursor:pointer">
+            ${options}
+          </select>
+        </div>
 
         <div class="fas-row">
           <span class="fas-label">FOB Forward</span>

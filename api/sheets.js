@@ -139,26 +139,65 @@ function parseAgropecuarios(rows) {
 }
 
 function parseHome(rows) {
-  // r3 cols 5-8: SPOT | Valor | Fecha Cotización | Fecha y Hora de Última Act
-  // r4+ filas SPOT
+  // Defensivo: busca celdas que coincidan con nombres SPOT conocidos en cualquier columna/fila,
+  // y toma el siguiente valor numérico como precio. Inmune a cambios de layout en la planilla.
+  const SPOT_PATTERNS = [
+    { rx: /^petr[oó]leo crudo wti cme$/i, key: 'wti',   unit: 'USD/bbl' },
+    { rx: /^soja chicago$/i,              key: 'soja',  unit: 'USD/Tn'  },
+    { rx: /^ma[ií]z chicago$/i,           key: 'maiz',  unit: 'USD/Tn'  },
+    { rx: /^trigo chicago$/i,             key: 'trigo', unit: 'USD/Tn'  },
+    { rx: /^oro cme$/i,                   key: 'oro',   unit: 'USD/oz'  },
+  ];
+
   const spot = [];
-  for (let i = 4; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r || !r[5]) continue;
-    const nombre = String(r[5]).trim();
-    if (!nombre || nombre === 'SPOT') continue;
-    const valor = num(r[6]);
-    if (valor === null) continue;
-    spot.push({
-      nombre,
-      valor,
-      fechaCotizacion:  r[7] || null,
-      ultimaActualizacion: r[8] || null,
-    });
+  const seen = new Set();
+  let ultimaAct = null;
+
+  for (const row of rows) {
+    if (!Array.isArray(row)) continue;
+    for (let i = 0; i < row.length; i++) {
+      const cell = String(row[i] || '').trim();
+      if (!cell) continue;
+      const pat = SPOT_PATTERNS.find(p => p.rx.test(cell));
+      if (!pat || seen.has(pat.key)) continue;
+
+      // Próximo valor numérico en la misma fila
+      let valor = null, fechaCotizacion = null;
+      for (let j = i + 1; j < row.length; j++) {
+        const v = row[j];
+        if (v === '' || v === null || v === undefined) continue;
+        const n = num(v);
+        if (n !== null && valor === null) { valor = n; continue; }
+        if (n === null && valor !== null && !fechaCotizacion) {
+          fechaCotizacion = String(v).trim();
+          break;
+        }
+      }
+
+      if (valor !== null) {
+        seen.add(pat.key);
+        spot.push({
+          nombre: cell,
+          key: pat.key,
+          unit: pat.unit,
+          valor,
+          fechaCotizacion,
+        });
+      }
+      break;  // una coincidencia por fila
+    }
+
+    // Capturar timestamp de "Fecha y Hora de Última Actualización" si aparece
+    if (!ultimaAct) {
+      const found = row?.find(c => typeof c === 'string' && /^\d{1,2}-\d{1,2}-\d{4}\s*\|/.test(c));
+      if (found) ultimaAct = found;
+    }
   }
+
   return {
     fuente:      'A3 Info · Home / Cotizaciones SPOT (Matba Rofex)',
     fuenteUrl:   `${SHEET_URL}/edit#gid=${TABS.home.gid}`,
+    actualizado: ultimaAct,
     spot,
   };
 }
