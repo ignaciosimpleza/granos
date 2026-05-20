@@ -55,7 +55,17 @@ export default async function handler(req, res) {
     const r = await fetch(url, {
       headers: {
         'x-api-key': apiKey,
-        'Accept': 'application/json',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'es-AR,es;q=0.9,en;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'empty',
+        'Sec-Fetch-Mode': 'cors',
+        'Sec-Fetch-Site': 'same-site',
+        'Referer': env === 'prod' ? 'https://marketdata.mae.com.ar/' : 'https://marketdata.mae.com.ar/',
+        'Origin': 'https://marketdata.mae.com.ar',
       },
     });
 
