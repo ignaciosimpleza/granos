@@ -43,10 +43,23 @@ function parseCSV(text) {
 
 function num(v) {
   if (v === null || v === undefined || v === '' || v === 'N/A') return null;
-  // Asume formato US (1234.56). Si Google exporta con coma decimal, también lo soporta.
   let s = String(v).trim();
-  if (/^-?\d{1,3}(\.\d{3})+,\d+$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
-  else if (/^-?\d+,\d+$/.test(s)) s = s.replace(',', '.');
+  // Quitar símbolos de moneda, códigos, espacios — todo lo que no sea dígito/coma/punto/menos
+  s = s.replace(/[^\d,.\-]/g, '');
+  if (!s) return null;
+  // Detectar formato AR (1.234,56) vs US (1,234.56 o 1234.56)
+  const lastComma = s.lastIndexOf(',');
+  const lastDot   = s.lastIndexOf('.');
+  if (lastComma > lastDot) {
+    // AR: coma decimal, punto miles
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if (lastDot > lastComma) {
+    // US: punto decimal, coma miles
+    s = s.replace(/,/g, '');
+  } else if (lastComma >= 0) {
+    // Solo coma → decimal
+    s = s.replace(',', '.');
+  }
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
 }
@@ -152,11 +165,19 @@ function norm(s) {
 function parseHome(rows) {
   // Cada SPOT pide TODAS sus keywords presentes (independiente del orden) en una celda
   const SPOT_PATTERNS = [
-    { keywords: ['petroleo', 'wti'], key: 'wti',   unit: 'USD/bbl' },
-    { keywords: ['soja', 'chicago'], key: 'soja',  unit: 'USD/Tn'  },
-    { keywords: ['maiz', 'chicago'], key: 'maiz',  unit: 'USD/Tn'  },
-    { keywords: ['trigo', 'chicago'],key: 'trigo', unit: 'USD/Tn'  },
-    { keywords: ['oro', 'cme'],      key: 'oro',   unit: 'USD/oz'  },
+    // CME internacional
+    { keywords: ['soja', 'chicago'],  key: 'soja',           display: 'Soja Chicago',           unit: 'USD/Tn',  grupo: 'cme' },
+    { keywords: ['maiz', 'chicago'],  key: 'maiz',           display: 'Maíz Chicago',           unit: 'USD/Tn',  grupo: 'cme' },
+    { keywords: ['trigo', 'chicago'], key: 'trigo',          display: 'Trigo Chicago',          unit: 'USD/Tn',  grupo: 'cme' },
+    { keywords: ['petroleo', 'wti'],  key: 'wti',            display: 'Petróleo WTI',           unit: 'USD/bbl', grupo: 'cme' },
+    { keywords: ['oro', 'cme'],       key: 'oro',            display: 'Oro CME',                unit: 'USD/oz',  grupo: 'cme' },
+    // Dólar plaza argentina
+    { keywords: ['ca3500'],           key: 'dolar_mayor',    display: 'Mayorista (A3500)',      unit: 'ARS',     grupo: 'dolar' },
+    { keywords: ['dolar', 'mep'],     key: 'dolar_mep',      display: 'MEP',                    unit: 'ARS',     grupo: 'dolar' },
+    { keywords: ['dolar', 'cable'],   key: 'dolar_ccl',      display: 'CCL (Cable)',            unit: 'ARS',     grupo: 'dolar' },
+    { keywords: ['dolar', 'bna'],     key: 'dolar_bna',      display: 'BNA',                    unit: 'ARS',     grupo: 'dolar' },
+    { keywords: ['dolar', 'blue'],    key: 'dolar_blue',     display: 'Blue',                   unit: 'ARS',     grupo: 'dolar' },
+    { keywords: ['dolar', 'rofex'],   key: 'dolar_rofex',    display: 'Garantía ROFEX',         unit: 'ARS',     grupo: 'dolar' },
   ];
 
   const spot = [];
@@ -194,7 +215,15 @@ function parseHome(rows) {
 
       if (valor !== null) {
         seen.add(pat.key);
-        spot.push({ nombre: cell, key: pat.key, unit: pat.unit, valor, fechaCotizacion });
+        spot.push({
+          nombre:  pat.display || cell,
+          nombreRaw: cell,
+          key:     pat.key,
+          grupo:   pat.grupo || 'cme',
+          unit:    pat.unit,
+          valor,
+          fechaCotizacion,
+        });
       }
       break;
     }
