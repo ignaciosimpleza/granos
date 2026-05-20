@@ -181,6 +181,116 @@
       font-weight: 700;
     }
     .btn-refresh.spinning .btn-icon { transform: rotate(360deg); }
+    .btn-refresh:disabled { opacity: 0.6; cursor: wait; }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-save {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--sidebar-bg);
+      background: var(--verde-menta);
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .btn-save:hover { background: #25c993; }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .snapshot-banner {
+      display: none;
+      position: fixed;
+      top: 64px;
+      left: 260px;
+      right: 0;
+      padding: 10px 40px;
+      background: rgba(247, 220, 111, 0.25);
+      border-bottom: 1px solid var(--amarillo-pastel);
+      font-size: 12.5px;
+      color: #6b5400;
+      z-index: 9;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .snapshot-banner.active { display: flex; }
+    .snapshot-banner button {
+      background: var(--sidebar-bg);
+      color: #fff;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-family: inherit;
+      font-size: 11.5px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .snapshot-banner.active ~ .main { padding-top: 132px; }
+
+    /* Reports list in sidebar */
+    .reports-section { margin-top: 8px; }
+    .reports-list {
+      list-style: none;
+      padding: 0 12px;
+    }
+    .reports-list li.empty {
+      padding: 8px 12px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
+      font-style: italic;
+    }
+    .report-item {
+      display: flex;
+      align-items: stretch;
+      gap: 4px;
+      margin-bottom: 4px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.03);
+      transition: background 0.15s;
+    }
+    .report-item:hover { background: rgba(255,255,255,0.06); }
+    .report-item.active { background: rgba(50, 232, 169, 0.10); }
+    .report-load {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.85);
+      text-align: left;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    .report-load strong { display: block; font-weight: 600; color: #fff; }
+    .report-load span {
+      font-size: 10.5px;
+      color: rgba(255,255,255,0.45);
+      display: block;
+      margin-top: 2px;
+    }
+    .report-item.active .report-load strong { color: var(--verde-menta); }
+    .report-delete {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.35);
+      cursor: pointer;
+      width: 28px;
+      font-size: 16px;
+      transition: color 0.15s;
+    }
+    .report-delete:hover { color: var(--terracota); }
 
     /* === Main === */
     .main {
@@ -502,7 +612,7 @@
   <!-- ============ SIDEBAR ============ -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <img src="logo.svg" alt="Simpleza" class="brand-logo"
+      <img src="logo.png" alt="Simpleza" class="brand-logo"
            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
       <div class="logo" style="display:none;"><span class="mark">S</span> Simpleza SA</div>
       <p>Coyuntura · <span id="brandMonth">Mayo 2026</span></p>
@@ -530,6 +640,13 @@
       <li><a href="#salario" data-title="Salario Real"><span class="dot"></span> Salario real</a></li>
     </ul>
 
+    <div class="reports-section">
+      <div class="nav-section-title">Reportes guardados</div>
+      <ul class="reports-list" id="reportsList">
+        <li class="empty">Cargando…</li>
+      </ul>
+    </div>
+
     <div class="sidebar-footer">
       Datos en vivo desde<br>
       <strong style="color: var(--verde-menta);">apis.datos.gob.ar</strong>
@@ -544,10 +661,18 @@
         <span class="crumb">Coyuntura ·</span><span id="topbarTitle">Resumen ejecutivo</span>
       </div>
     </div>
-    <button id="refreshBtn" class="btn-refresh" title="Actualiza al mes vigente y re-consulta las APIs">
-      <span class="btn-icon">↻</span> Reporte · <strong id="reportMonth">Mayo 2026</strong>
-    </button>
+    <div class="topbar-actions">
+      <button id="saveBtn" class="btn-save" title="Guarda un snapshot del estado actual">+ Guardar reporte</button>
+      <button id="refreshBtn" class="btn-refresh" title="Actualiza al mes vigente y re-consulta las APIs">
+        <span class="btn-icon">↻</span> <strong id="reportMonth">Mayo 2026</strong>
+      </button>
+    </div>
   </header>
+
+  <div class="snapshot-banner" id="snapshotBanner">
+    <span>Viendo reporte guardado: <strong id="snapshotTitle"></strong></span>
+    <button id="exitSnapshot">Volver al mes vigente</button>
+  </div>
 
   <!-- ============ MAIN ============ -->
   <main class="main">
@@ -1596,6 +1721,12 @@
   }
 
   /* ============================================================
+   * SNAPSHOT GLOBAL — captura del estado actual para guardar a Turso
+   * ============================================================ */
+  const currentSnapshot = { ipc: null, emae: null, salario: null };
+  let viewingSnapshotId = null; // null = modo vivo
+
+  /* ============================================================
    * LIVE DATA WIRING
    * ============================================================ */
 
@@ -1620,12 +1751,20 @@
 
       // Interanual = compose (1+ri/100) over last 12 -1
       const last12 = json.data.slice(-12);
+      let pctAnual = null;
       if (last12.length === 12) {
         const acum = last12.reduce((acc, [, v]) => acc * (1 + (+v) / 100), 1) - 1;
-        const pct = acum * 100;
-        document.getElementById('ipc-anual').textContent = fmtPct(pct);
-        document.getElementById('kpi-ipc-anual').textContent = fmtPct(pct);
+        pctAnual = acum * 100;
+        document.getElementById('ipc-anual').textContent = fmtPct(pctAnual);
+        document.getElementById('kpi-ipc-anual').textContent = fmtPct(pctAnual);
       }
+
+      currentSnapshot.ipc = {
+        labels, values,
+        lastDate: lastRow[0],
+        mensual: +lastRow[1],
+        anual: pctAnual
+      };
 
       setBadgeLive(badge, lastRow[0]);
     } catch (e) {
@@ -1655,10 +1794,18 @@
       document.getElementById('emae-valor').textContent = fmtNum(+lastRow[1]);
       document.getElementById('kpi-emae').textContent = fmtNum(+lastRow[1]);
       document.getElementById('kpi-emae-sub').textContent = `EMAE · ${formatMonth(lastRow[0])}`;
+      let varA = null;
       if (prev12) {
-        const varA = ((+lastRow[1] / +prev12[1]) - 1) * 100;
+        varA = ((+lastRow[1] / +prev12[1]) - 1) * 100;
         document.getElementById('emae-var-anual').textContent = (varA >= 0 ? '+' : '') + fmtPct(varA);
       }
+
+      currentSnapshot.emae = {
+        labels, indice, varMensual,
+        lastDate: lastRow[0],
+        lastValue: +lastRow[1],
+        varAnual: varA
+      };
 
       setBadgeLive(badge, lastRow[0]);
     } catch (e) {
@@ -1703,7 +1850,15 @@
         document.getElementById('salario-var').textContent = (va >= 0 ? '+' : '') + fmtPct(va);
       }
 
-      setBadgeLive(badge, last[last.length - 1].date ? salarioReal.slice(-1)[0].date : null);
+      currentSnapshot.salario = {
+        labels, indice, varAnual,
+        lastDate: salarioReal[salarioReal.length - 1].date,
+        lastValue: lastVal,
+        baseDate: rows[0][0],
+        varAnualUltimo: va
+      };
+
+      setBadgeLive(badge, salarioReal[salarioReal.length - 1].date);
     } catch (e) {
       console.warn('Salario API falló, usando fallback', e);
       renderSalario(FALLBACK.salario.labels, FALLBACK.salario.indice, FALLBACK.salario.varAnual, false);
@@ -1739,6 +1894,174 @@
     if (tg) tg.addEventListener('click', () => sb.classList.toggle('open'));
     document.querySelectorAll('.sidebar-nav a').forEach(a => {
       a.addEventListener('click', () => sb.classList.remove('open'));
+    });
+  }
+
+  /* ============================================================
+   * REPORTES PERSISTIDOS (Turso vía /api/reports)
+   * ============================================================ */
+  const REPORTS_API = '/api/reports';
+  let savedReportsCache = [];
+
+  async function listReports() {
+    const ul = document.getElementById('reportsList');
+    try {
+      const res = await fetch(REPORTS_API);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const { reports } = await res.json();
+      savedReportsCache = reports || [];
+      renderReportsList();
+    } catch (e) {
+      console.warn('No se pueden listar reportes:', e.message);
+      ul.innerHTML = '<li class="empty">Configurá Turso para guardar reportes</li>';
+      const sb = document.getElementById('saveBtn');
+      if (sb) sb.style.display = 'none';
+    }
+  }
+
+  function renderReportsList() {
+    const ul = document.getElementById('reportsList');
+    if (savedReportsCache.length === 0) {
+      ul.innerHTML = '<li class="empty">Sin reportes guardados</li>';
+      return;
+    }
+    ul.innerHTML = savedReportsCache.map(r => `
+      <li class="report-item${r.id === viewingSnapshotId ? ' active' : ''}" data-id="${r.id}">
+        <button class="report-load" data-action="load" data-id="${r.id}">
+          <strong>${monthEsLabel(r.month)}</strong>
+          <span>v${r.version} · ${(r.created_at || '').slice(0, 10)}</span>
+        </button>
+        <button class="report-delete" data-action="delete" data-id="${r.id}" title="Eliminar reporte">×</button>
+      </li>
+    `).join('');
+  }
+
+  function monthEsLabel(monthKey) {
+    // "2026-05" → "Mayo 2026"
+    if (!monthKey || !monthKey.includes('-')) return monthKey;
+    const [y, m] = monthKey.split('-');
+    const names = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    return `${names[parseInt(m, 10) - 1]} ${y}`;
+  }
+
+  function currentMonthKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  async function saveCurrentReport() {
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+    try {
+      const payload = {
+        month: currentMonthKey(),
+        data: {
+          capturedAt: new Date().toISOString(),
+          ipc: currentSnapshot.ipc,
+          emae: currentSnapshot.emae,
+          salario: currentSnapshot.salario
+        }
+      };
+      const res = await fetch(REPORTS_API, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await listReports();
+    } catch (e) {
+      alert('Error al guardar: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '+ Guardar reporte';
+    }
+  }
+
+  async function loadReport(id) {
+    try {
+      const res = await fetch(`${REPORTS_API}?id=${id}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const report = await res.json();
+      applySnapshot(report);
+      viewingSnapshotId = Number(id);
+      renderReportsList();
+    } catch (e) {
+      alert('Error al cargar: ' + e.message);
+    }
+  }
+
+  async function deleteReport(id) {
+    if (!confirm('¿Eliminar este reporte? No se puede deshacer.')) return;
+    try {
+      const res = await fetch(`${REPORTS_API}?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (viewingSnapshotId === Number(id)) exitSnapshot();
+      await listReports();
+    } catch (e) {
+      alert('Error al eliminar: ' + e.message);
+    }
+  }
+
+  function applySnapshot(report) {
+    const banner = document.getElementById('snapshotBanner');
+    const title = document.getElementById('snapshotTitle');
+    title.textContent = `${monthEsLabel(report.month)} · v${report.version} · creado ${(report.created_at || '').slice(0, 10)}`;
+    banner.classList.add('active');
+
+    const d = report.data || {};
+    if (d.ipc) {
+      renderIpc(d.ipc.labels, d.ipc.values, false);
+      document.getElementById('ipc-fecha').textContent = formatMonth(d.ipc.lastDate);
+      document.getElementById('ipc-mensual').textContent = fmtPct(d.ipc.mensual);
+      document.getElementById('kpi-ipc-mensual').textContent = fmtPct(d.ipc.mensual);
+      if (d.ipc.anual != null) {
+        document.getElementById('ipc-anual').textContent = fmtPct(d.ipc.anual);
+        document.getElementById('kpi-ipc-anual').textContent = fmtPct(d.ipc.anual);
+      }
+    }
+    if (d.emae) {
+      renderEmae(d.emae.labels, d.emae.indice, d.emae.varMensual, false);
+      document.getElementById('emae-fecha').textContent = formatMonth(d.emae.lastDate);
+      document.getElementById('emae-valor').textContent = fmtNum(d.emae.lastValue);
+      document.getElementById('kpi-emae').textContent = fmtNum(d.emae.lastValue);
+      if (d.emae.varAnual != null) {
+        document.getElementById('emae-var-anual').textContent = (d.emae.varAnual >= 0 ? '+' : '') + fmtPct(d.emae.varAnual);
+      }
+    }
+    if (d.salario) {
+      renderSalario(d.salario.labels, d.salario.indice, d.salario.varAnual, false);
+      document.getElementById('salario-indice').textContent = fmtNum(d.salario.lastValue);
+      document.getElementById('salario-indice-sub').textContent = `Base ${formatMonth(d.salario.baseDate)} = 100`;
+      if (d.salario.varAnualUltimo != null) {
+        document.getElementById('salario-var').textContent = (d.salario.varAnualUltimo >= 0 ? '+' : '') + fmtPct(d.salario.varAnualUltimo);
+      }
+    }
+  }
+
+  function exitSnapshot() {
+    document.getElementById('snapshotBanner').classList.remove('active');
+    viewingSnapshotId = null;
+    setCurrentMonthLabel();
+    fetchAllLive();
+    renderReportsList();
+  }
+
+  function wireReportsUI() {
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) saveBtn.addEventListener('click', saveCurrentReport);
+
+    const exitBtn = document.getElementById('exitSnapshot');
+    if (exitBtn) exitBtn.addEventListener('click', exitSnapshot);
+
+    const list = document.getElementById('reportsList');
+    if (list) list.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const action = btn.dataset.action;
+      if (action === 'load') loadReport(id);
+      else if (action === 'delete') deleteReport(id);
     });
   }
 
@@ -1800,9 +2123,13 @@
 
     initNav();
     wireRefreshButton();
+    wireReportsUI();
 
     // Fetch live data in parallel
     fetchAllLive();
+
+    // Cargar la lista de reportes guardados (si Turso está configurado)
+    listReports();
   });
   </script>
 </body>
