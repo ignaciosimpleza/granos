@@ -1281,7 +1281,7 @@ body {
   <!-- TC Futuro strip -->
   <div class="card" style="margin-bottom:18px">
     <div class="card-header">
-      <span class="card-title">TC Dólar Futuro ROFEX · Ambito</span>
+      <span class="card-title">Dólar Futuro · Matba Rofex</span>
       <span class="card-source" id="tc-source">—</span>
     </div>
     <div class="card-body" id="tc-strip-wrap">
@@ -1316,7 +1316,7 @@ body {
   <!-- TC Futuro strip -->
   <div class="card" style="margin-bottom:18px">
     <div class="card-header">
-      <span class="card-title">TC Dólar Futuro ROFEX · Ambito</span>
+      <span class="card-title">Dólar Futuro · Matba Rofex</span>
       <span class="card-source" id="tc-source">—</span>
     </div>
     <div class="card-body" id="tc-strip-wrap">
@@ -2394,10 +2394,12 @@ function refreshAll() {
 
 
 // ══════════════════════════════════════════
-// DATOS EN VIVO — TC ROFEX · FOB MAGYP · FAS
+// DATOS EN VIVO — Dólar Futuro (A3 Info/Matba Rofex) · FOB (MAGYP) · FAS
 // ══════════════════════════════════════════
 
-const LIVE_PROXY_URL = 'https://granos.vercel.app/api/fob';
+const LIVE_PROXY_URL      = '/api/fob';
+const A3_SHEETS_URL       = '/api/sheets';
+const A3_SHEETS_HUMAN_URL = 'https://docs.google.com/spreadsheets/d/1j-ZrWBO-fCkGUPqWtWRsGgGswMRCm2mnMhsPmX6osLI';
 
 const LIVE_CFG = {
   proxyUrl: LIVE_PROXY_URL,
@@ -2565,41 +2567,32 @@ async function fetchLiveAll() {
   }
 }
 
-// ── TC Futuro ROFEX ────────────────────────────────────────────────
+// ── TC Futuro Dólar — A3 Info (Matba Rofex / Primary) ─────────────
 async function fetchTCFuturo() {
-  const res = await fetch('https://granos.vercel.app/api/tc', {
+  const res = await fetch(`${A3_SHEETS_URL}?tab=financiero`, {
     signal: AbortSignal.timeout(10000)
   });
   if(!res.ok) throw new Error('HTTP ' + res.status);
-  const raw = await res.json();
-  console.log('[TC] respuesta raw:', JSON.stringify(raw).substring(0, 400));
+  const json = await res.json();
+  console.log('[TC] A3 Info actualizado:', json.actualizado, '· dólares:', json.dolares?.length);
 
   LIVE.tcFuturos = [];
-  // API returns {"1":{...},"3":{...},...} — plain object with numeric keys
-  const arr = Array.isArray(raw) ? raw
-    : (raw.data || raw.datos || raw.rows)
-      ? (raw.data || raw.datos || raw.rows)
-      : Object.values(raw);
-
-  arr.forEach(item => {
-    let contrato, precio;
-    if(Array.isArray(item)) {
-      [contrato, precio] = [item[0], item[1]];
-    } else {
-      contrato = item.contrato || item.Contrato || item.nombre || item.denominacion || item.descripcion;
-      precio   = item.venta    || item.ultimo   || item.Ultimo || item.precio || item.cierre || item.last;
+  (json.dolares || []).forEach(d => {
+    if(d.mes && d.año && d.precio > 10) {
+      LIVE.tcFuturos.push({
+        mes: d.mes,
+        año: d.año,
+        contrato: d.contrato,
+        label: `${MES_LABEL[d.mes]} ${String(d.año).slice(-2)}`,
+        tc: d.precio,
+      });
     }
-    if(!contrato || String(contrato).toLowerCase() === 'contrato') return;
-    const parsed = parseMesAno(String(contrato));
-    const tc     = parseNum(precio);
-    if(parsed && tc > 10) LIVE.tcFuturos.push({...parsed, contrato: String(contrato), tc});
   });
 
   LIVE.tcFuturos.sort((a,b) => a.año !== b.año ? a.año - b.año : a.mes - b.mes);
 
   if(LIVE.tcFuturos.length === 0) {
-    const preview = JSON.stringify(raw).substring(0, 200);
-    throw new Error('Sin contratos parseables. Respuesta: ' + preview);
+    throw new Error('Sin contratos DLR en A3 Info. Última act: ' + (json.actualizado || 's/d'));
   }
   saveCache(CACHE_KEY_TC, LIVE.tcFuturos);
 }
@@ -2796,10 +2789,13 @@ function renderTCStrip() {
   }
 
   if(src) {
-    src.textContent = LIVE.fromCache?.tc
-      ? '⚠ Último dato cacheado'
-      : 'Ambito · mercados.ambito.com';
-    src.style.color = LIVE.fromCache?.tc ? 'var(--amarillo-pastel)' : '';
+    if(LIVE.fromCache?.tc) {
+      src.innerHTML = '⚠ Último dato cacheado';
+      src.style.color = 'var(--amarillo-pastel)';
+    } else {
+      src.innerHTML = `Fuente: <a href="${A3_SHEETS_HUMAN_URL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">A3 Info · Matba Rofex / Primary</a>`;
+      src.style.color = '';
+    }
   }
 
   const chips = LIVE.tcFuturos.slice(0,12).map(t=>`
@@ -2824,8 +2820,13 @@ function renderFOBLiveTable() {
 
   if(fechaBadge) {
     const cached = LIVE.fromCache?.fob;
-    fechaBadge.textContent = (cached ? '⚠ Último dato · ' : 'MAGYP · ') + (LIVE.fobFecha||'—');
-    fechaBadge.style.color = cached ? 'var(--amarillo-pastel)' : '';
+    if(cached) {
+      fechaBadge.textContent = '⚠ Último dato · ' + (LIVE.fobFecha||'—');
+      fechaBadge.style.color = 'var(--amarillo-pastel)';
+    } else {
+      fechaBadge.innerHTML = `Fuente: <a href="https://www.magyp.gob.ar/sitio/areas/ss_mercados_agropecuarios/" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">MAGYP — FOB Oficiales</a> · ${LIVE.fobFecha||'—'}`;
+      fechaBadge.style.color = '';
+    }
   }
 
   const now = new Date();
