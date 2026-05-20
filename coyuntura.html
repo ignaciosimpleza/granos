@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Coyuntura Económica Argentina · Mayo 2026 — Simpleza SA</title>
+  <title>Coyuntura Económica Argentina — Simpleza SA</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -55,6 +55,12 @@
       padding: 0 24px 22px;
       border-bottom: 1px solid rgba(255,255,255,0.08);
       margin-bottom: 14px;
+    }
+    .sidebar-brand .brand-logo {
+      display: block;
+      max-width: 170px;
+      height: auto;
+      margin-bottom: 6px;
     }
     .sidebar-brand .logo {
       display: flex; align-items: center; gap: 10px;
@@ -147,6 +153,34 @@
       color: var(--gris-medio);
     }
     .topbar-meta strong { color: var(--gris-oscuro); }
+
+    .btn-refresh {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--gris-oscuro);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .btn-refresh:hover {
+      border-color: var(--verde-menta);
+      background: rgba(50, 232, 169, 0.06);
+    }
+    .btn-refresh strong { color: var(--azul-pizarra); font-weight: 600; }
+    .btn-refresh .btn-icon {
+      display: inline-block;
+      transition: transform 0.5s;
+      color: var(--azul-pizarra);
+      font-weight: 700;
+    }
+    .btn-refresh.spinning .btn-icon { transform: rotate(360deg); }
 
     /* === Main === */
     .main {
@@ -468,8 +502,10 @@
   <!-- ============ SIDEBAR ============ -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <div class="logo"><span class="mark">S</span> Simpleza SA</div>
-      <p>Coyuntura · Mayo 2026</p>
+      <img src="logo.svg" alt="Simpleza" class="brand-logo"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+      <div class="logo" style="display:none;"><span class="mark">S</span> Simpleza SA</div>
+      <p>Coyuntura · <span id="brandMonth">Mayo 2026</span></p>
     </div>
 
     <div class="nav-section-title">Contexto</div>
@@ -508,7 +544,9 @@
         <span class="crumb">Coyuntura ·</span><span id="topbarTitle">Resumen ejecutivo</span>
       </div>
     </div>
-    <div class="topbar-meta">Reporte · <strong>Mayo 2026</strong></div>
+    <button id="refreshBtn" class="btn-refresh" title="Actualiza al mes vigente y re-consulta las APIs">
+      <span class="btn-icon">↻</span> Reporte · <strong id="reportMonth">Mayo 2026</strong>
+    </button>
   </header>
 
   <!-- ============ MAIN ============ -->
@@ -1705,9 +1743,46 @@
   }
 
   /* ============================================================
+   * MES VIGENTE (basado en new Date())
+   * ============================================================ */
+  function setCurrentMonthLabel() {
+    const d = new Date();
+    const m = d.toLocaleDateString('es-AR', { month: 'long' });
+    const monthCap = m.charAt(0).toUpperCase() + m.slice(1);
+    const y = d.getFullYear();
+    const label = `${monthCap} ${y}`;
+    document.getElementById('reportMonth').textContent = label;
+    document.getElementById('brandMonth').textContent = label;
+    document.title = `Coyuntura · ${label} — Simpleza SA`;
+  }
+
+  function fetchAllLive() {
+    apiCache.clear();
+    return Promise.allSettled([liveIpc(), liveEmae(), liveSalario()]);
+  }
+
+  function wireRefreshButton() {
+    const btn = document.getElementById('refreshBtn');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      btn.classList.add('spinning');
+      btn.disabled = true;
+      setCurrentMonthLabel();
+      await fetchAllLive();
+      setTimeout(() => {
+        btn.classList.remove('spinning');
+        btn.disabled = false;
+      }, 600);
+    });
+  }
+
+  /* ============================================================
    * BOOT
    * ============================================================ */
   document.addEventListener('DOMContentLoaded', () => {
+    // Mes vigente en topbar/sidebar/title
+    setCurrentMonthLabel();
+
     // Render static charts immediately
     renderLibertadArg();
     renderLibertadCmp();
@@ -1724,11 +1799,10 @@
     renderSalario(FALLBACK.salario.labels, FALLBACK.salario.indice, FALLBACK.salario.varAnual, false);
 
     initNav();
+    wireRefreshButton();
 
     // Fetch live data in parallel
-    liveIpc();
-    liveEmae();
-    liveSalario();
+    fetchAllLive();
   });
   </script>
 </body>
