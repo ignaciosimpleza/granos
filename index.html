@@ -759,8 +759,8 @@ body {
 
   <nav class="sidebar-nav">
     <div class="nav-section-label">Análisis</div>
-    <div class="nav-item active" onclick="showTab('overview',this)">Resumen</div>
-    <div class="nav-item" onclick="showTab('live',this)" style="color:var(--verde-menta)">⚡ Datos en Vivo</div>
+    <div class="nav-item active" onclick="showTab('live',this)" style="color:var(--verde-menta)">⚡ Datos en Vivo</div>
+    <div class="nav-item" onclick="showTab('overview',this)">Resumen</div>
     <div class="nav-item" onclick="showTab('prices',this)">Precios CME / ARG</div>
     <div class="nav-item" onclick="showTab('stocks',this)">Stocks Mundiales</div>
     <div class="nav-item" onclick="showTab('wasde',this)">WASDE</div>
@@ -808,7 +808,7 @@ body {
 <div class="content-area">
 
 <!-- ═══════════ OVERVIEW ═══════════ -->
-<div id="tab-overview" class="main active">
+<div id="tab-overview" class="main">
     <div class="g4" id="kpi-row"></div>
 
   <div class="g2">
@@ -821,7 +821,7 @@ body {
           <button class="period-btn" onclick="setOvPeriod(365,this)">1 Año</button>
         </div>
       </div>
-      <div class="chart-wrap"><canvas id="ov-price" height="185"></canvas></div>
+      <div class="chart-wrap"><canvas id="ov-price" height="150"></canvas></div>
       <div class="source">Fuente: Simpleza en base a CME y A3 Mercados.</div>
     </div>
     <div class="card">
@@ -873,7 +873,7 @@ body {
       <span class="card-title">Evolución de precios — USD/Tn</span>
       <span class="card-source">CME Chicago vs Argentina (A3)</span>
     </div>
-    <div class="chart-wrap"><canvas id="price-main" height="240"></canvas></div>
+    <div class="chart-wrap"><canvas id="price-main" height="190"></canvas></div>
     <div class="ref-labels">
       <div class="ref-item"><div class="ref-dot" style="background:var(--teal);height:2px"></div>CME Chicago</div>
       <div class="ref-item"><div class="ref-dot" style="background:var(--blue);height:2px;border-top:2px dashed var(--blue)"></div>Argentina A3</div>
@@ -922,13 +922,13 @@ body {
         <button class="period-btn" onclick="setStockView('ratio',this)">Stock/Uso %</button>
       </div>
     </div>
-    <div class="chart-wrap"><canvas id="world-stocks" height="260"></canvas></div>
+    <div class="chart-wrap"><canvas id="world-stocks" height="165"></canvas></div>
     <div class="source">Fuente: Simpleza en base a USDA/WASDE.</div>
   </div>
 
   <div class="card">
     <div class="card-header"><span class="card-title">Stocks finales por país — campaña 24/25</span></div>
-    <div class="chart-wrap"><canvas id="country-stocks" height="200"></canvas></div>
+    <div class="chart-wrap"><canvas id="country-stocks" height="165"></canvas></div>
     <div class="source">Fuente: Simpleza en base a USDA/WASDE.</div>
   </div>
 </div>
@@ -953,12 +953,12 @@ body {
   <div class="g2">
     <div class="card">
       <div class="card-header"><span class="card-title">Stocks finales por país — Mill. Tn</span></div>
-      <div class="chart-wrap"><canvas id="wasde-stk-chart" height="220"></canvas></div>
+      <div class="chart-wrap"><canvas id="wasde-stk-chart" height="170"></canvas></div>
       <div class="source">Fuente: Simpleza en base a USDA/WASDE.</div>
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">Balance oferta / demanda — Mill. Tn</span></div>
-      <div class="chart-wrap"><canvas id="wasde-bal-chart" height="220"></canvas></div>
+      <div class="chart-wrap"><canvas id="wasde-bal-chart" height="170"></canvas></div>
       <div class="source">Fuente: Simpleza en base a USDA/WASDE.</div>
     </div>
   </div>
@@ -976,19 +976,19 @@ body {
   <div class="g2">
     <div class="card">
       <div class="teal-header light">Stocks finales EE.UU. — últimas 5 campañas</div>
-      <div class="chart-wrap"><canvas id="us-stocks-chart" height="220"></canvas></div>
+      <div class="chart-wrap"><canvas id="us-stocks-chart" height="170"></canvas></div>
       <div class="source">Fuente: Simpleza en base a USDA/WASDE.</div>
     </div>
     <div class="card">
       <div class="teal-header light">Molienda EE.UU. — últimas 5 campañas</div>
-      <div class="chart-wrap"><canvas id="us-crush-chart" height="220"></canvas></div>
+      <div class="chart-wrap"><canvas id="us-crush-chart" height="170"></canvas></div>
       <div class="source">Fuente: Simpleza en base a USDA/NASS.</div>
     </div>
   </div>
 
   <div class="card">
     <div class="teal-header">Exportaciones EE.UU. a China vs. años anteriores</div>
-    <div class="chart-wrap"><canvas id="us-china-chart" height="220"></canvas></div>
+    <div class="chart-wrap"><canvas id="us-china-chart" height="170"></canvas></div>
     <div class="source">Fuente: Simpleza en base a USDA/FAS.</div>
   </div>
 </div>
@@ -1004,19 +1004,19 @@ body {
 
   <div class="card" style="margin-bottom:18px">
     <div class="teal-header">Importaciones mensuales y acumulado — Soja China</div>
-    <div class="chart-wrap"><canvas id="china-monthly" height="240"></canvas></div>
+    <div class="chart-wrap"><canvas id="china-monthly" height="190"></canvas></div>
     <div class="source">Fuente: Simpleza en base a GACC / Aduana China.</div>
   </div>
 
   <div class="g2">
     <div class="card">
       <div class="card-header"><span class="card-title">Importaciones por grano — 2024 vs 2023</span></div>
-      <div class="chart-wrap"><canvas id="china-by-grain" height="220"></canvas></div>
+      <div class="chart-wrap"><canvas id="china-by-grain" height="170"></canvas></div>
       <div class="source">Fuente: Simpleza en base a GACC.</div>
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">Origen de soja importada por China</span></div>
-      <div class="chart-wrap"><canvas id="china-origin" height="220"></canvas></div>
+      <div class="chart-wrap"><canvas id="china-origin" height="170"></canvas></div>
       <div class="source">Fuente: Simpleza en base a GACC.</div>
     </div>
   </div>
@@ -1032,7 +1032,7 @@ body {
 
   <div class="card" style="margin-bottom:18px">
     <div class="teal-header">Evolución posición neta semanal — miles de contratos</div>
-    <div class="chart-wrap"><canvas id="funds-chart" height="240"></canvas></div>
+    <div class="chart-wrap"><canvas id="funds-chart" height="190"></canvas></div>
     <div class="source">Fuente: Simpleza en base a CFTC.</div>
   </div>
 
@@ -1047,7 +1047,7 @@ body {
 <div id="tab-fob" class="main">
     <div class="card" style="margin-bottom:18px">
     <div class="teal-header">Precios FOB por país — USD/Tn</div>
-    <div class="chart-wrap"><canvas id="fob-chart" height="280"></canvas></div>
+    <div class="chart-wrap"><canvas id="fob-chart" height="210"></canvas></div>
     <div class="source">Fuente: Simpleza en base a Reuters / Bloomberg.</div>
   </div>
 
@@ -1076,8 +1076,8 @@ body {
       <div class="kpi blue-top"><div class="kpi-label">Real / USD</div><div class="kpi-val">5,85</div><div class="kpi-sub">Impacto competitividad</div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="teal-header light">Brasil — Soja: siembra, cosecha, exportaciones</div><div class="chart-wrap"><canvas id="bra-soja" height="220"></canvas></div><div class="source">Fuente: Simpleza en base a CONAB.</div></div>
-      <div class="card"><div class="teal-header light">Brasil — Maíz: evolución de campañas</div><div class="chart-wrap"><canvas id="bra-maiz" height="220"></canvas></div><div class="source">Fuente: Simpleza en base a CONAB.</div></div>
+      <div class="card"><div class="teal-header light">Brasil — Soja: siembra, cosecha, exportaciones</div><div class="chart-wrap"><canvas id="bra-soja" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a CONAB.</div></div>
+      <div class="card"><div class="teal-header light">Brasil — Maíz: evolución de campañas</div><div class="chart-wrap"><canvas id="bra-maiz" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a CONAB.</div></div>
     </div>
   </div>
 
@@ -1089,8 +1089,8 @@ body {
       <div class="kpi red-top"><div class="kpi-label">Stocks soja</div><div class="kpi-val dn">7,7 MT</div><div class="kpi-sub">Ratio 7,1%</div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="teal-header light">EE.UU. — Soja: área y producción</div><div class="chart-wrap"><canvas id="usa-soja" height="220"></canvas></div><div class="source">Fuente: Simpleza en base a USDA/NASS.</div></div>
-      <div class="card"><div class="teal-header light">EE.UU. — Maíz: área y producción</div><div class="chart-wrap"><canvas id="usa-maiz" height="220"></canvas></div><div class="source">Fuente: Simpleza en base a USDA/NASS.</div></div>
+      <div class="card"><div class="teal-header light">EE.UU. — Soja: área y producción</div><div class="chart-wrap"><canvas id="usa-soja" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a USDA/NASS.</div></div>
+      <div class="card"><div class="teal-header light">EE.UU. — Maíz: área y producción</div><div class="chart-wrap"><canvas id="usa-maiz" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a USDA/NASS.</div></div>
     </div>
   </div>
 
@@ -1102,8 +1102,8 @@ body {
       <div class="kpi red-top"><div class="kpi-label">Tipo de cambio</div><div class="kpi-val dn">1.090</div><div class="kpi-sub">ARS/USD oficial</div></div>
     </div>
     <div class="g2">
-      <div class="card"><div class="teal-header light">Argentina — Soja: siembra, cosecha, exportaciones</div><div class="chart-wrap"><canvas id="arg-soja" height="220"></canvas></div><div class="source">Fuente: Simpleza en base a INDEC / Bolsa de Rosario.</div></div>
-      <div class="card"><div class="teal-header light">Argentina — Maíz: evolución de campañas</div><div class="chart-wrap"><canvas id="arg-maiz" height="220"></canvas></div><div class="source">Fuente: Simpleza en base a INDEC / Bolsa de Rosario.</div></div>
+      <div class="card"><div class="teal-header light">Argentina — Soja: siembra, cosecha, exportaciones</div><div class="chart-wrap"><canvas id="arg-soja" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a INDEC / Bolsa de Rosario.</div></div>
+      <div class="card"><div class="teal-header light">Argentina — Maíz: evolución de campañas</div><div class="chart-wrap"><canvas id="arg-maiz" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a INDEC / Bolsa de Rosario.</div></div>
     </div>
   </div>
 </div>
@@ -1128,12 +1128,12 @@ body {
   <div class="g2" style="margin-bottom:18px">
     <div class="card">
       <div class="card-header"><span class="card-title">Probabilidades de tasas — FedWatch CME</span></div>
-      <div class="chart-wrap"><canvas id="fed-prob" height="200"></canvas></div>
+      <div class="chart-wrap"><canvas id="fed-prob" height="165"></canvas></div>
       <div class="source">Fuente: Simpleza en base a CME FedWatch.</div>
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">Índice Dólar DXY — impacto en granos</span></div>
-      <div class="chart-wrap"><canvas id="dxy-chart" height="200"></canvas></div>
+      <div class="chart-wrap"><canvas id="dxy-chart" height="165"></canvas></div>
       <div class="source">Fuente: Simpleza en base a Bloomberg.</div>
     </div>
   </div>
@@ -1174,7 +1174,6 @@ body {
     <div class="upd-grid" id="price-inputs"></div>
     <div style="display:flex;gap:10px;margin-top:6px">
       <button class="upd-btn" onclick="savePrices()">Guardar precios</button>
-      <button class="upd-btn sec" onclick="loadDefaults()">Cargar datos ejemplo</button>
     </div>
   </div>
 
@@ -1205,7 +1204,7 @@ body {
 
 
 <!-- ═══════════ LIVE DATA ═══════════ -->
-<div id="tab-live" class="main">
+<div id="tab-live" class="main active">
 
   <!-- Error banner -->
   <div id="live-error-wrap"></div>
@@ -1278,6 +1277,17 @@ body {
     </div>
   </div>
 
+  <!-- CME Spot reference -->
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-header">
+      <span class="card-title">Spot internacional CME · Chicago</span>
+      <span class="card-source" id="cme-source">—</span>
+    </div>
+    <div class="card-body" id="cme-strip-wrap">
+      <p style="color:var(--text4);font-size:12px">Cargando…</p>
+    </div>
+  </div>
+
   <!-- TC Futuro strip -->
   <div class="card" style="margin-bottom:18px">
     <div class="card-header">
@@ -1301,44 +1311,12 @@ body {
   </div>
 
   <!-- MATBA / Premio por vencimiento -->
-  <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px">
-    Soja — FAS teórico por vencimiento · Premio MATBA
+  <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+    <span style="font-size:14px;font-weight:700;color:var(--text)">Soja — FAS teórico por vencimiento · Premio MATBA</span>
+    <span class="card-source" id="matba-source" style="font-size:10px">—</span>
   </div>
   <div id="matba-wrap">
     <p style="color:var(--text4);font-size:12px;margin-bottom:16px">Cargando…</p>
-  </div>
-
-</div>
-    <!-- Status / Errors -->
-  <div id="live-error-wrap"></div>
-
-
-  <!-- TC Futuro strip -->
-  <div class="card" style="margin-bottom:18px">
-    <div class="card-header">
-      <span class="card-title">Dólar Futuro · Matba Rofex</span>
-      <span class="card-source" id="tc-source">—</span>
-    </div>
-    <div class="card-body" id="tc-strip-wrap">
-      <p style="color:var(--text4);font-size:12px">Sin datos — presioná "Actualizar datos en vivo"</p>
-    </div>
-  </div>
-
-  <!-- FOB + FAS table -->
-  <div class="card" style="margin-bottom:18px">
-    <div class="card-header">
-      <span class="card-title">FOB MAGYP + FAS Teórico</span>
-      <span class="card-source" id="fob-fecha-badge">—</span>
-    </div>
-    <div id="fob-live-wrap">
-      <p style="padding:16px;color:var(--text4);font-size:12px">Sin datos FOB — configurá el proxy y conectá</p>
-    </div>
-  </div>
-
-  <!-- MATBA / Premio por vencimiento de Soja -->
-  <div class="sec-title" style="margin-top:8px">Soja — FAS teórico por vencimiento · Premio MATBA</div>
-  <div id="matba-wrap">
-    <p style="color:var(--text4);font-size:12px;margin-bottom:16px">Sin datos disponibles aún</p>
   </div>
 
 </div>
@@ -1976,12 +1954,11 @@ function renderWasde() {
     <tbody>
       ${w.countries.map(c=>{
         const chg = parseFloat(c.chg.replace(',','.'));
-        const yoy = (Math.random()*10-5).toFixed(1);
         return `<tr>
           <td>${c.n}</td><td>${c.prod}</td>
           <td style="color:${chg>=0?TEAL:RED};font-weight:600">${c.chg}%</td>
           <td>${c.cons}</td><td>${c.exp}</td><td>${c.imp}</td><td>${c.stk}</td>
-          <td style="color:${parseFloat(yoy)>=0?TEAL:RED};font-weight:600">${parseFloat(yoy)>=0?'+':''}${yoy}%</td>
+          <td style="color:var(--text4)">—</td>
         </tr>`;
       }).join('')}
       <tr class="total-row">
@@ -2333,8 +2310,6 @@ function saveFunds() {
   alert('✓ Posición de fondos actualizada');
 }
 
-function loadDefaults() { alert('✓ Datos de ejemplo cargados'); }
-
 // ══════════════════════════════════════════
 // AI
 // ══════════════════════════════════════════
@@ -2360,15 +2335,20 @@ Brindá un análisis de 5 párrafos: (1) situación actual, (2) fundamentos clav
 Sé técnico y conciso.`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/ai', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})
+      body:JSON.stringify({prompt, max_tokens:1024}),
     });
     const data = await res.json();
-    document.getElementById(outId).textContent = data.content?.[0]?.text || 'No se pudo generar el análisis.';
+    if(!res.ok) {
+      const detail = data?.error || ('HTTP ' + res.status);
+      document.getElementById(outId).textContent = 'No se pudo generar el análisis: ' + detail;
+    } else {
+      document.getElementById(outId).textContent = data.text || 'Sin respuesta.';
+    }
   } catch(e) {
-    document.getElementById(outId).textContent = 'Error al conectar. Por favor reintentá.';
+    document.getElementById(outId).textContent = 'Error de red al consultar IA. Reintentá.';
   } finally {
     document.getElementById(spinId).style.display='none';
   }
@@ -2429,13 +2409,17 @@ const LIVE_CFG = {
 const LIVE = {
   tcFuturos: [],   // [{contrato, label, mes, año, tc}]
   fob:       {},   // {soja:[{precio,mesDesde,añoDesde,mesHasta,añoHasta}], ...}
-  matba:     {},   // {soja:{'5_2026': 270, '11_2026': null, ...}}
+  matba:     {},   // {soja:{'5_2026': 270, '11_2026': null, ...}}  (manual override)
+  matbaAuto: {},   // {soja:[{mes,año,key,precio}], maiz:[...], trigo:[...], girasol:[...]}
+  cmeSpot:   {},   // {soja:{val,fecha}, maiz:{val,fecha}, trigo:{val,fecha}, wti:{...}, oro:{...}}
   fobFecha:  null,
+  cmeFecha:  null,
+  matbaFecha: null,
   loaded:    false,
   loading:   false,
   errors:    [],
   ts:        null,
-  fromCache: { tc: false, fob: false },
+  fromCache: { tc: false, fob: false, cme: false, matba: false },
 };
 
 const NCM_MAP = {
@@ -2468,8 +2452,10 @@ function setLiveIndicator(state) {
 
 // ── Main fetch orchestrator ────────────────────────────────────────
 // ── Cache helpers ─────────────────────────────────────────────────
-const CACHE_KEY_TC  = 'smz_cache_tc';
-const CACHE_KEY_FOB = 'smz_cache_fob';
+const CACHE_KEY_TC    = 'smz_cache_tc';
+const CACHE_KEY_FOB   = 'smz_cache_fob';
+const CACHE_KEY_CME   = 'smz_cache_cme';
+const CACHE_KEY_MATBA = 'smz_cache_matba';
 
 function saveCache(key, data) {
   try {
@@ -2503,9 +2489,11 @@ async function fetchLiveAll() {
   setLiveIndicator('loading');
 
   try {
-  const [tcResult, fobResult] = await Promise.allSettled([
+  const [tcResult, fobResult, cmeResult, matbaResult] = await Promise.allSettled([
     fetchTCFuturo(),
     fetchFOBMAGYP(),
+    fetchCMESpot(),
+    fetchMatbaForward(),
   ]);
 
   // If TC failed, try cache
@@ -2533,19 +2521,48 @@ async function fetchLiveAll() {
     }
   }
 
-  LIVE.ts      = new Date();
-  LIVE.loaded  = LIVE.tcFuturos.length > 0 || Object.keys(LIVE.fob).length > 0;
+  // If CME failed, try cache
+  if(cmeResult.status === 'rejected') {
+    const cached = loadCache(CACHE_KEY_CME);
+    if(cached && Object.keys(cached.data?.cmeSpot || {}).length > 0) {
+      LIVE.cmeSpot       = cached.data.cmeSpot;
+      LIVE.cmeFecha      = cached.data.fecha;
+      LIVE.fromCache.cme = true;
+      LIVE.errors.push('CME spot: usando último dato (' + cacheAge(cached.ts) + ')');
+    } else {
+      LIVE.errors.push('CME spot: ' + cmeResult.reason?.message);
+    }
+  }
 
-  const hasTc  = LIVE.tcFuturos.length > 0;
-  const hasFob = Object.keys(LIVE.fob).length > 0;
-  const allFromCache = LIVE.fromCache.tc && LIVE.fromCache.fob;
-  const anyFromCache = LIVE.fromCache.tc || LIVE.fromCache.fob;
-  const anyLive      = (hasTc && !LIVE.fromCache.tc) || (hasFob && !LIVE.fromCache.fob);
+  // If MATba forward failed, try cache
+  if(matbaResult.status === 'rejected') {
+    const cached = loadCache(CACHE_KEY_MATBA);
+    if(cached && Object.keys(cached.data?.matbaAuto || {}).length > 0) {
+      LIVE.matbaAuto       = cached.data.matbaAuto;
+      LIVE.matbaFecha      = cached.data.fecha;
+      LIVE.fromCache.matba = true;
+      LIVE.errors.push('MATba forward: usando último dato (' + cacheAge(cached.ts) + ')');
+    } else {
+      LIVE.errors.push('MATba forward: ' + matbaResult.reason?.message);
+    }
+  }
 
-  if(!hasTc && !hasFob)        setLiveIndicator('error');
-  else if(anyLive && !anyFromCache) setLiveIndicator('live');
-  else if(anyLive && anyFromCache)  setLiveIndicator('partial');
-  else                              setLiveIndicator('cache');
+  LIVE.ts = new Date();
+  const hasTc    = LIVE.tcFuturos.length > 0;
+  const hasFob   = Object.keys(LIVE.fob).length > 0;
+  const hasCme   = Object.keys(LIVE.cmeSpot).length > 0;
+  const hasMatba = Object.values(LIVE.matbaAuto).some(a => a.length > 0);
+  LIVE.loaded = hasTc || hasFob || hasCme || hasMatba;
+
+  const flags        = [{has:hasTc,c:LIVE.fromCache.tc},{has:hasFob,c:LIVE.fromCache.fob},
+                        {has:hasCme,c:LIVE.fromCache.cme},{has:hasMatba,c:LIVE.fromCache.matba}];
+  const anyFromCache = flags.some(f => f.c);
+  const anyLive      = flags.some(f => f.has && !f.c);
+
+  if(!LIVE.loaded)                   setLiveIndicator('error');
+  else if(anyLive && !anyFromCache)  setLiveIndicator('live');
+  else if(anyLive && anyFromCache)   setLiveIndicator('partial');
+  else                               setLiveIndicator('cache');
 
   // Timestamp
   const tsEl = document.getElementById('live-ts');
@@ -2557,7 +2574,11 @@ async function fetchLiveAll() {
   if(LIVE.loaded) applyLiveToUI();
 
   const active = document.querySelector('.main.active');
-  if(active && active.id === 'tab-live') renderLiveTab();
+  if(active) {
+    const tabId = active.id.replace('tab-', '');
+    if(tabId === 'live') renderLiveTab();
+    else renderTab(tabId);
+  }
 
   } catch(e) {
     setLiveIndicator('error');
@@ -2595,6 +2616,84 @@ async function fetchTCFuturo() {
     throw new Error('Sin contratos DLR en A3 Info. Última act: ' + (json.actualizado || 's/d'));
   }
   saveCache(CACHE_KEY_TC, LIVE.tcFuturos);
+}
+
+// ── CME Spot (Soja Chicago / Maíz Chicago / WTI / Oro) — A3 Info / Home ──
+async function fetchCMESpot() {
+  const res = await fetch(`${A3_SHEETS_URL}?tab=home`, { signal: AbortSignal.timeout(10000) });
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+
+  // Mapeo nombres SPOT de A3 Info → claves internas
+  const NAME_MAP = {
+    'soja chicago':         'soja',
+    'maíz chicago':         'maiz',
+    'maiz chicago':         'maiz',
+    'trigo chicago':        'trigo',
+    'petróleo crudo wti cme': 'wti',
+    'petroleo crudo wti cme': 'wti',
+    'oro cme':              'oro',
+  };
+
+  LIVE.cmeSpot = {};
+  (json.spot || []).forEach(s => {
+    const key = NAME_MAP[String(s.nombre || '').toLowerCase().trim()];
+    if(!key) return;
+    LIVE.cmeSpot[key] = {
+      val:    s.valor,
+      fecha:  s.fechaCotizacion || null,
+      nombre: s.nombre,
+    };
+  });
+
+  LIVE.cmeFecha = json.spot?.[0]?.ultimaActualizacion || null;
+
+  if(Object.keys(LIVE.cmeSpot).length === 0) {
+    throw new Error('Sin SPOT reconocido en A3 Info / Home');
+  }
+  saveCache(CACHE_KEY_CME, { cmeSpot: LIVE.cmeSpot, fecha: LIVE.cmeFecha });
+}
+
+// ── MATba Forward (Soja, Maíz, Trigo, Girasol) — A3 Info / Agropecuarios ──
+async function fetchMatbaForward() {
+  const res = await fetch(`${A3_SHEETS_URL}?tab=agropecuarios`, { signal: AbortSignal.timeout(10000) });
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+
+  LIVE.matbaAuto = { soja: [], maiz: [], trigo: [], girasol: [] };
+
+  // Solo agarramos contratos en USD (Dolar MATba) — descartamos los ARS pesificados
+  const buckets = [
+    { key: 'soja',    prefix: 'SOJ' },
+    { key: 'maiz',    prefix: 'MAI' },
+    { key: 'trigo',   prefix: 'TRI' },
+    { key: 'girasol', prefix: 'GIR' },
+  ];
+
+  (json.contratos || []).forEach(c => {
+    if(!c.precio || !c.mes || !c.año) return;
+    if(c.moneda !== 'USD') return;  // Solo MATba en dólares
+    const bucket = buckets.find(b => c.contrato.startsWith(b.prefix));
+    if(!bucket) return;
+    LIVE.matbaAuto[bucket.key].push({
+      contrato: c.contrato,
+      mes:      c.mes,
+      año:      c.año,
+      key:      `${c.mes}_${c.año}`,
+      precio:   c.precio,
+    });
+  });
+
+  // Ordenar cada bucket por vencimiento
+  Object.values(LIVE.matbaAuto).forEach(arr => {
+    arr.sort((a,b) => a.año !== b.año ? a.año - b.año : a.mes - b.mes);
+  });
+
+  LIVE.matbaFecha = json.actualizado || null;
+
+  const total = Object.values(LIVE.matbaAuto).reduce((s,a) => s + a.length, 0);
+  if(total === 0) throw new Error('Sin contratos USD en Resumen Agropecuarios');
+  saveCache(CACHE_KEY_MATBA, { matbaAuto: LIVE.matbaAuto, fecha: LIVE.matbaFecha });
 }
 
 // ── FOB MAGYP ─────────────────────────────────────────────────────
@@ -2725,10 +2824,23 @@ function applyLiveToUI() {
   const now = new Date();
   const mes = now.getMonth()+1, año = now.getFullYear();
 
-  // Update KPI[1] (ARG price) for soja, maiz, trigo with FOB live
-  const grainMap = {soja:'soja', maiz:'maiz', trigo:'trigo'};
-  Object.entries(grainMap).forEach(([g, prod]) => {
-    const r = calcFAS(prod, mes, año);
+  // KPI[0] (precio CME) — se autoactualiza con A3 Info / Home (Soja Chicago, Maíz Chicago)
+  ['soja','maiz','trigo'].forEach(g => {
+    const c = LIVE.cmeSpot[g];
+    if(!c || !Number.isFinite(c.val)) return;
+    DB[g].kpis[0] = {
+      lbl:  'Precio spot CME ⚡',
+      val:  c.val.toFixed(1).replace('.',','),
+      unit: 'USD/Tn',
+      chg:  c.fecha ? ('cotiz. ' + String(c.fecha).split('T')[0]) : '',
+      up:   true,
+      live: true,
+    };
+  });
+
+  // KPI[1] (precio ARG) — FAS calculado vs FOB MAGYP en vivo
+  ['soja','maiz','trigo'].forEach(g => {
+    const r = calcFAS(g, mes, año);
     if(!r) return;
     DB[g].kpis[1] = {
       lbl:  'FOB ARG (MAGYP) ⚡',
@@ -2770,9 +2882,54 @@ function renderLiveTab() {
   const diEl = document.getElementById('desc-imp');
   if(diEl) diEl.value = localStorage.getItem('smz_desc_imp') || 4;
 
+  renderCMESpotStrip();
   renderTCStrip();
   renderFOBLiveTable();
   renderMatbaCards();
+}
+
+// ── CME spot strip ────────────────────────────────────────────────
+function renderCMESpotStrip() {
+  const wrap = document.getElementById('cme-strip-wrap');
+  const src  = document.getElementById('cme-source');
+  if(!wrap) return;
+
+  if(Object.keys(LIVE.cmeSpot).length === 0) {
+    const cmeErr = LIVE.errors.find(e => e.toLowerCase().includes('cme'));
+    wrap.innerHTML = `<p style="color:var(--terracota);font-size:12px">${cmeErr || 'Sin datos CME — presioná Actualizar'}</p>`;
+    if(src) src.textContent = '—';
+    return;
+  }
+
+  if(src) {
+    if(LIVE.fromCache?.cme) {
+      src.innerHTML = '⚠ Último dato cacheado';
+      src.style.color = 'var(--amarillo-pastel)';
+    } else {
+      src.innerHTML = `Fuente: <a href="${A3_SHEETS_HUMAN_URL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">A3 Info · CME (Matba Rofex)</a>`;
+      src.style.color = '';
+    }
+  }
+
+  const ORDER = [
+    { k:'soja',  lbl:'Soja Chicago',  unit:'USD/Tn' },
+    { k:'maiz',  lbl:'Maíz Chicago',  unit:'USD/Tn' },
+    { k:'trigo', lbl:'Trigo Chicago', unit:'USD/Tn' },
+    { k:'wti',   lbl:'Petróleo WTI',  unit:'USD/bbl' },
+    { k:'oro',   lbl:'Oro CME',       unit:'USD/oz'  },
+  ];
+
+  const chips = ORDER.filter(o => LIVE.cmeSpot[o.k]).map(o => {
+    const c = LIVE.cmeSpot[o.k];
+    return `
+      <div class="tc-chip">
+        <div class="tc-mes">${o.lbl}</div>
+        <div class="tc-val">${c.val.toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:2})}</div>
+        <div style="font-size:9px;color:var(--text4);margin-top:2px">${o.unit}</div>
+      </div>`;
+  }).join('');
+
+  wrap.innerHTML = `<div class="tc-curve-wrap">${chips}</div>`;
 }
 
 // ── TC strip ──────────────────────────────────────────────────────
@@ -2884,15 +3041,42 @@ function renderMatbaCards() {
   const wrap = document.getElementById('matba-wrap');
   if(!wrap) return;
 
+  const src = document.getElementById('matba-source');
+  if(src) {
+    const hasAuto = (LIVE.matbaAuto.soja || []).length > 0;
+    if(hasAuto) {
+      const tag = LIVE.fromCache?.matba ? '⚠ Cacheado · ' : '';
+      src.innerHTML = `${tag}Fuente: <a href="${A3_SHEETS_HUMAN_URL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">A3 Info · Resumen Agropecuarios</a>`;
+      src.style.color = LIVE.fromCache?.matba ? 'var(--amarillo-pastel)' : '';
+    } else {
+      src.textContent = 'Sin datos automáticos — ingresar manual';
+      src.style.color = 'var(--text4)';
+    }
+  }
+
   const venc = nextVencSoja(3);
+
+  // Helper: prioriza override manual; si no, usa auto de A3 Info
+  function getMatba(mes, año, key) {
+    const manual = (LIVE.matba.soja || {})[key];
+    if(manual !== undefined && manual !== null) return { val: manual, fuente: 'manual' };
+    const auto = (LIVE.matbaAuto.soja || []).find(m => m.mes === mes && m.año === año);
+    return auto ? { val: auto.precio, fuente: 'auto', contrato: auto.contrato } : { val: null, fuente: null };
+  }
 
   wrap.innerHTML = `<div class="g3" style="margin-bottom:0">
     ${venc.map(v => {
       const r      = calcFAS('soja', v.mes, v.año);
       const tc     = getTC(v.mes, v.año);
-      const matba  = (LIVE.matba.soja || {})[v.key] || null;
+      const matInfo = getMatba(v.mes, v.año, v.key);
+      const matba  = matInfo.val;
       const premio = (matba !== null && r) ? matba - r.fasUSD : null;
       const premioColor = premio === null ? 'var(--text4)' : premio >= 0 ? 'var(--green)' : 'var(--terracota)';
+      const matbaTag = matInfo.fuente === 'auto'
+        ? '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(50,232,169,0.15);color:var(--verde-menta);font-weight:700;margin-left:5px">A3 ⚡</span>'
+        : matInfo.fuente === 'manual'
+          ? '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(108,134,140,0.15);color:var(--azul-pizarra);font-weight:700;margin-left:5px">manual</span>'
+          : '';
 
       return `<div class="fas-card">
         <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:12px">${v.label}</div>
@@ -2924,10 +3108,11 @@ function renderMatbaCards() {
 
         <div style="border-top:2px solid var(--border);margin-top:12px;padding-top:12px">
           <div class="fas-row" style="margin-bottom:8px">
-            <span class="fas-label" style="font-weight:600">MATBA (u$s/tn)</span>
+            <span class="fas-label" style="font-weight:600">MATBA (u$s/tn) ${matbaTag}</span>
             <input type="number" step="0.5" placeholder="—"
               value="${matba !== null ? matba : ''}"
               onchange="setMatba('soja','${v.key}',this.value);renderMatbaCards()"
+              title="${matInfo.contrato ? 'A3 Info: '+matInfo.contrato+'. Vacío usa el valor automático.' : 'Ingresá un precio para override manual.'}"
               style="width:80px;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:12px;font-weight:600;text-align:right;font-family:'Sora',sans-serif;background:var(--bg2);outline:none">
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">
