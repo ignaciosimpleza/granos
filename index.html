@@ -520,25 +520,6 @@ body {
 .signal-card.bear .signal-num { color:var(--terracota); }
 
 /* ─── AI SECTION ─── */
-.ai-box {
-  background: var(--teal4);
-  border: 1px solid var(--teal3);
-  border-left: 3px solid var(--azul-pizarra);
-  border-radius: 10px;
-  padding: 16px 18px;
-  margin-top: 16px;
-}
-.ai-hdr { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-.ai-lbl { font-size:10px; font-weight:700; color:var(--gris-oscuro); letter-spacing:1px; text-transform:uppercase; }
-.ai-out { font-size:12px; line-height:1.75; color:var(--text2); white-space:pre-wrap; }
-.ai-spin {
-  width:14px; height:14px;
-  border:2px solid var(--teal3);
-  border-top-color:var(--azul-pizarra);
-  border-radius:50%;
-  animation:spin 0.8s linear infinite;
-}
-@keyframes spin { to{ transform:rotate(360deg); } }
 
 /* ─── UPDATE PANEL ─── */
 .upd-panel { background:#fff; border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:20px; }
@@ -842,15 +823,6 @@ body {
       <div class="card-header"><span class="card-title">Riesgos geopolíticos</span></div>
       <div class="card-body" id="geo-risks"></div>
     </div>
-  </div>
-
-  <div class="ai-box">
-    <div class="ai-hdr">
-      <div class="ai-spin" id="ai-spin-ov" style="display:none"></div>
-      <span class="ai-lbl">Análisis de mercado — IA</span>
-      <button class="period-btn" style="margin-left:auto" onclick="doAI('overview')">Generar análisis</button>
-    </div>
-    <div class="ai-out" id="ai-out-ov">Presioná "Generar análisis" para obtener una perspectiva detallada del mercado.</div>
   </div>
 </div>
 
@@ -1157,14 +1129,6 @@ body {
 <!-- ═══════════ SIGNALS ═══════════ -->
 <div id="tab-signals" class="main">
     <div class="signal-grid" id="signal-grid"></div>
-  <div class="ai-box" style="margin-top:18px">
-    <div class="ai-hdr">
-      <div class="ai-spin" id="ai-spin-sig" style="display:none"></div>
-      <span class="ai-lbl">Análisis técnico — IA</span>
-      <button class="period-btn" style="margin-left:auto" onclick="doAI('signals')">Generar análisis técnico</button>
-    </div>
-    <div class="ai-out" id="ai-out-sig">Presioná "Generar análisis técnico" para obtener análisis detallado.</div>
-  </div>
 </div>
 
 <!-- ═══════════ UPDATE ═══════════ -->
@@ -2308,50 +2272,6 @@ function saveFunds() {
   if(h) g.hdg = parseInt(h).toLocaleString('es-AR',{signDisplay:'always'});
   updateTs();
   alert('✓ Posición de fondos actualizada');
-}
-
-// ══════════════════════════════════════════
-// AI
-// ══════════════════════════════════════════
-async function doAI(type) {
-  const spinId = type==='overview'?'ai-spin-ov':'ai-spin-sig';
-  const outId = type==='overview'?'ai-out-ov':'ai-out-sig';
-  const g = DB[currentGrain];
-  document.getElementById(spinId).style.display='block';
-  document.getElementById(outId).textContent='Generando análisis...';
-
-  const prompt = type==='overview'
-    ? `Eres un analista senior de mercados agrícolas de Simpleza. Analiza la situación actual del mercado de ${g.name} con estos datos reales:
-- Precio CME: ${g.kpis[0].val} USD/Tn (${g.kpis[0].chg})
-- Precio Argentina A3: ${g.kpis[1].val} USD/Tn
-- Producción mundial: ${g.wasde.prod} MT | Stocks finales: ${g.wasde.stk} MT
-- Ratio stock/uso: ${g.stockRatio} | Fondos especulativos: ${g.funds.spec} contratos
-Brindá un análisis de 5 párrafos: (1) situación actual, (2) fundamentos clave, (3) contexto macro y FED, (4) riesgos principales, (5) perspectiva próximos 3 meses. Sé específico con cifras reales.`
-    : `Eres analista técnico de Simpleza. Para el mercado de ${g.name} (${g.kpis[0].val} USD/Tn) realizá:
-1. Análisis técnico: soporte/resistencia clave, tendencia, momentum
-2. Balance oferta/demanda campaña 24/25: producción ${g.wasde.prod} MT, stocks ${g.wasde.stk} MT
-3. Niveles objetivo: soporte y resistencia a 30, 60 y 90 días
-4. Señal de trading con confianza estimada y justificación
-Sé técnico y conciso.`;
-
-  try {
-    const res = await fetch('/api/ai', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({prompt, max_tokens:1024}),
-    });
-    const data = await res.json();
-    if(!res.ok) {
-      const detail = data?.error || ('HTTP ' + res.status);
-      document.getElementById(outId).textContent = 'No se pudo generar el análisis: ' + detail;
-    } else {
-      document.getElementById(outId).textContent = data.text || 'Sin respuesta.';
-    }
-  } catch(e) {
-    document.getElementById(outId).textContent = 'Error de red al consultar IA. Reintentá.';
-  } finally {
-    document.getElementById(spinId).style.display='none';
-  }
 }
 
 // ══════════════════════════════════════════
