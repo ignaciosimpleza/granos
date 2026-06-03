@@ -2323,6 +2323,7 @@ function refreshAll() {
 // ══════════════════════════════════════════
 
 const LIVE_PROXY_URL      = '/api/fob';
+const FAS_PROXY_URL       = '/api/fas';   // FAS oficial DINEM/MAGYP (en pesos)
 const A3_SHEETS_URL       = '/api/sheets';
 const A3_SHEETS_HUMAN_URL = 'https://docs.google.com/spreadsheets/d/1j-ZrWBO-fCkGUPqWtWRsGgGswMRCm2mnMhsPmX6osLI';
 
@@ -2358,14 +2359,16 @@ const LIVE = {
   matbaAuto:  {},   // {soja:[{mes,año,key,precio}], maiz:[...], trigo:[...], girasol:[...]}
   cmeSpot:    {},   // {soja:{val,fecha,nombre,unit}, maiz:{...}, ...}  (internacional CME)
   dolarPlaza: {},   // {dolar_mayor:{...}, dolar_mep:{...}, ...}        (dólar plaza ARG)
+  fasDinem:   {},   // {soja:453000, aceite:..., maiz:..., ...}  (FAS oficial DINEM en $/tn)
   fobFecha:   null,
   cmeFecha:   null,
   matbaFecha: null,
+  fasDinemFecha: null,
   loaded:     false,
   loading:    false,
   errors:     [],
   ts:         null,
-  fromCache:  { tc: false, fob: false, cme: false, matba: false },
+  fromCache:  { tc: false, fob: false, cme: false, matba: false, fas: false },
 };
 
 const NCM_MAP = {
@@ -2402,6 +2405,7 @@ const CACHE_KEY_TC    = 'smz_cache_tc';
 const CACHE_KEY_FOB   = 'smz_cache_fob';
 const CACHE_KEY_CME   = 'smz_cache_cme';
 const CACHE_KEY_MATBA = 'smz_cache_matba';
+const CACHE_KEY_FAS   = 'smz_cache_fas';
 
 function saveCache(key, data) {
   try {
@@ -2431,15 +2435,16 @@ async function fetchLiveAll() {
   if(LIVE.loading) return;
   LIVE.loading = true;
   LIVE.errors  = [];
-  LIVE.fromCache = { tc: false, fob: false };
+  LIVE.fromCache = { tc: false, fob: false, cme: false, matba: false, fas: false };
   setLiveIndicator('loading');
 
   try {
-  const [tcResult, fobResult, cmeResult, matbaResult] = await Promise.allSettled([
+  const [tcResult, fobResult, cmeResult, matbaResult, fasResult] = await Promise.allSettled([
     fetchTCFuturo(),
     fetchFOBMAGYP(),
     fetchCMESpot(),
     fetchMatbaForward(),
+    fetchFASDinem(),
   ]);
 
   // If TC failed, try cache
@@ -2493,6 +2498,19 @@ async function fetchLiveAll() {
       LIVE.errors.push('MATba forward: usando último dato (' + cacheAge(cached.ts) + ')');
     } else {
       LIVE.errors.push('MATba forward: ' + matbaResult.reason?.message);
+    }
+  }
+
+  // If FAS DINEM failed, try cache (si tampoco hay caché, la tabla cae al FAS calculado)
+  if(fasResult.status === 'rejected') {
+    const cached = loadCache(CACHE_KEY_FAS);
+    if(cached && Object.keys(cached.data?.fas || {}).length > 0) {
+      LIVE.fasDinem        = cached.data.fas;
+      LIVE.fasDinemFecha   = cached.data.fecha;
+      LIVE.fromCache.fas   = true;
+      LIVE.errors.push('FAS DINEM: usando último dato (' + cacheAge(cached.ts) + ')');
+    } else {
+      LIVE.errors.push('FAS DINEM: ' + fasResult.reason?.message);
     }
   }
 
@@ -2685,6 +2703,29 @@ function parseFOB(posts, fecha) {
       añoHasta: +p.añoHasta,
     });
   });
+}
+
+// ── FAS oficial — DINEM / MAGYP (en pesos) ─────────────────────────
+async function fetchFASDinem() {
+  const res = await fetch(FAS_PROXY_URL, { signal: AbortSignal.timeout(12000) });
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const json = await res.json();
+  LIVE.fasDinem = {};
+  Object.entries(json.fas || {}).forEach(([k, v]) => {
+    if(Number.isFinite(+v) && +v > 0) LIVE.fasDinem[k] = +v;
+  });
+  LIVE.fasDinemFecha = json.fecha || null;
+  if(Object.keys(LIVE.fasDinem).length === 0) {
+    throw new Error(json.error || 'Sin datos FAS en DINEM');
+  }
+  console.log('[FAS] DINEM', LIVE.fasDinemFecha, LIVE.fasDinem);
+  saveCache(CACHE_KEY_FAS, { fas: LIVE.fasDinem, fecha: LIVE.fasDinemFecha });
+}
+
+// FAS oficial DINEM en $/tn para un producto, o null si DINEM no lo publica.
+function getFASDinem(prod) {
+  const v = LIVE.fasDinem[prod];
+  return Number.isFinite(v) ? v : null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -2967,11 +3008,24 @@ function renderFOBLiveTable() {
     {k:'harina', n:'Harina Soja', ret: LIVE_CFG.retenciones.harina},
   ];
 
+  let anyCalc = false;   // ¿alguna fila usa FAS calculado (DINEM no lo publica)?
   const rows = prods.map(p => {
     const r = calcFAS(p.k, mes, año);
     if(!r) return '';
     const pctRet  = (p.ret*100).toFixed(1)+'%';
-    const fasARSStr = r.fasARS ? '$'+r.fasARS.toLocaleString('es-AR',{maximumFractionDigits:0}) : '—';
+
+    // FAS ($): se trae oficial de DINEM/MAGYP. Si DINEM no lo publica, cae al calculado.
+    const oficial = getFASDinem(p.k);
+    let fasCell;
+    if(oficial !== null) {
+      fasCell = `<strong title="FAS oficial DINEM/MAGYP${LIVE.fasDinemFecha ? ' · '+LIVE.fasDinemFecha : ''}">$${oficial.toLocaleString('es-AR',{maximumFractionDigits:0})}</strong>`;
+    } else if(r.fasARS) {
+      anyCalc = true;
+      fasCell = `<strong style="color:var(--amarillo-pastel)" title="Calculado (FAS u$s × TC) — DINEM no publica FAS oficial para ${p.n}">$${r.fasARS.toLocaleString('es-AR',{maximumFractionDigits:0})} <sup>c</sup></strong>`;
+    } else {
+      fasCell = '—';
+    }
+
     return `<tr>
       <td><strong>${p.n}</strong></td>
       <td>${r.fob.toFixed(0)}</td>
@@ -2980,9 +3034,16 @@ function renderFOBLiveTable() {
       <td>${LIVE_CFG.fobbing[p.k]}</td>
       <td><strong>${r.fasUSD.toFixed(0)}</strong></td>
       <td>${tc ? '$'+tc.toLocaleString('es-AR',{maximumFractionDigits:0}) : '—'}</td>
-      <td><strong>${fasARSStr}</strong></td>
+      <td>${fasCell}</td>
     </tr>`;
   }).join('');
+
+  // Atribución de la fuente del FAS ($) oficial
+  const dinemTag = LIVE.fromCache?.fas
+    ? `⚠ FAS ($) oficial cacheado${LIVE.fasDinemFecha ? ' · '+LIVE.fasDinemFecha : ''}`
+    : (Object.keys(LIVE.fasDinem).length
+        ? `FAS ($) oficial: <a href="https://dinem.magyp.gob.ar/dinem_fas.cfas_all.aspx" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">DINEM/MAGYP</a>${LIVE.fasDinemFecha ? ' · '+LIVE.fasDinemFecha : ''}`
+        : 'FAS ($) oficial DINEM no disponible — mostrando calculado');
 
   wrap.innerHTML = `
   <div style="overflow-x:auto">
@@ -2995,13 +3056,14 @@ function renderFOBLiveTable() {
         <th>Fobbing</th>
         <th>FAS (u$s)</th>
         <th>TC (ARS)</th>
-        <th>FAS ($)</th>
+        <th>FAS ($) oficial</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
   </div>
   <p style="font-size:10px;color:var(--text4);padding:8px 16px">
-    Fórmula: FAS = FOB − [(FOB − ${LIVE_CFG.descImp}) × Ret%] − Fobbing · TC: ${MES_LABEL[mes]} ${año}
+    FAS (u$s) = FOB − [(FOB − ${LIVE_CFG.descImp}) × Ret%] − Fobbing · TC: ${MES_LABEL[mes]} ${año}<br>
+    ${dinemTag}${anyCalc ? ' · <sup>c</sup> FAS calculado (DINEM no publica oficial para ese producto)' : ''}
   </p>`;
 }
 
