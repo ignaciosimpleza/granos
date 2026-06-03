@@ -1308,6 +1308,20 @@ body {
     <p style="color:var(--text4);font-size:12px;margin-bottom:16px">Cargando…</p>
   </div>
 
+  <!-- Pizarra BCR — histórico -->
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-header">
+      <span class="card-title">Pizarra BCR — Histórico</span>
+      <span class="card-source" id="pizarra-source">Fuente: Cámara Arbitral de Cereales · BCR</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px 0">
+      <div id="pizarra-grains" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+      <div class="period-btns" id="pizarra-periods" style="margin-left:auto"></div>
+    </div>
+    <div class="chart-wrap tall"><canvas id="pizarra-chart"></canvas></div>
+    <div class="source" id="pizarra-foot">Precios de pizarra ($/tn) — Cámara Arbitral de Cereales, Rosario.</div>
+  </div>
+
 </div>
 
 </div><!-- /content-area -->
@@ -2919,6 +2933,120 @@ function renderLiveTab() {
   renderTCStrip();
   renderFOBLiveTable();
   renderMatbaCards();
+  renderPizarraCard();
+  if(!PIZARRA.loaded && !PIZARRA.loading) loadPizarra();
+}
+
+// ── Pizarra BCR (histórico desde Turso) ────────────────────────────
+const PIZARRA = {
+  data:    {},        // {soja:[{fecha,precio}], ...}
+  grano:   'soja',
+  period:  365,       // días; 0 = todo
+  loaded:  false,
+  loading: false,
+  error:   false,
+};
+const PIZARRA_GRAINS = [
+  { k:'soja', lbl:'Soja' }, { k:'maiz', lbl:'Maíz' }, { k:'trigo', lbl:'Trigo' },
+  { k:'girasol', lbl:'Girasol' }, { k:'sorgo', lbl:'Sorgo' },
+];
+const PIZARRA_COLORS = { soja:'#32E8A9', maiz:'#F7DC6F', trigo:'#CD6155', girasol:'#6C868C', sorgo:'#8B7FA5' };
+const PIZARRA_PERIODS = [ {d:90,l:'90D'}, {d:365,l:'1A'}, {d:1825,l:'5A'}, {d:0,l:'Todo'} ];
+
+async function loadPizarra() {
+  PIZARRA.loading = true;
+  PIZARRA.error   = false;
+  try {
+    const res = await fetch('/api/pizarra', { signal: AbortSignal.timeout(12000) });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    PIZARRA.data   = json.series || {};
+    PIZARRA.loaded = true;
+    // Si el grano por defecto no tiene datos, saltar al primero que sí tenga
+    if((PIZARRA.data[PIZARRA.grano] || []).length === 0) {
+      const first = PIZARRA_GRAINS.find(g => (PIZARRA.data[g.k] || []).length > 0);
+      if(first) PIZARRA.grano = first.k;
+    }
+  } catch(e) {
+    console.warn('[pizarra]', e.message);
+    PIZARRA.error = true;
+  } finally {
+    PIZARRA.loading = false;
+    renderPizarraCard();
+  }
+}
+
+function setPizarraGrain(g) { PIZARRA.grano = g; renderPizarraCard(); }
+function setPizarraPeriod(d) { PIZARRA.period = d; renderPizarraCard(); }
+
+function renderPizarraCard() {
+  // Botonera de granos
+  const gWrap = document.getElementById('pizarra-grains');
+  if(gWrap) {
+    gWrap.innerHTML = PIZARRA_GRAINS.map(g => {
+      const on = PIZARRA.grano === g.k;
+      const has = (PIZARRA.data[g.k] || []).length > 0;
+      return `<button onclick="setPizarraGrain('${g.k}')" ${has?'':'disabled'}
+        style="padding:4px 10px;border-radius:5px;font-size:11px;font-weight:600;cursor:${has?'pointer':'not-allowed'};
+               font-family:'Sora',sans-serif;border:1px solid ${on?PIZARRA_COLORS[g.k]:'var(--border)'};
+               background:${on?PIZARRA_COLORS[g.k]:'#fff'};color:${on?'#1a1d23':(has?'var(--text3)':'var(--text4)')};opacity:${has?1:0.5}">${g.lbl}</button>`;
+    }).join('');
+  }
+  // Botonera de período
+  const pWrap = document.getElementById('pizarra-periods');
+  if(pWrap) {
+    pWrap.innerHTML = PIZARRA_PERIODS.map(p =>
+      `<button class="period-btn ${PIZARRA.period===p.d?'active':''}" onclick="setPizarraPeriod(${p.d})">${p.l}</button>`
+    ).join('');
+  }
+
+  const foot = document.getElementById('pizarra-foot');
+  const serieFull = PIZARRA.data[PIZARRA.grano] || [];
+
+  // Estado sin serie para el grano elegido
+  if(serieFull.length === 0) {
+    if(charts['pizarra']) { charts['pizarra'].destroy(); charts['pizarra'] = null; }
+    if(foot) {
+      if(!PIZARRA.loaded && !PIZARRA.error) foot.textContent = 'Cargando histórico…';
+      else if(PIZARRA.error)               foot.innerHTML = 'No se pudo leer la base (¿Turso configurado en Vercel?).';
+      else                                 foot.innerHTML = 'Sin datos todavía para este grano — corré la sincronización/backfill desde <code>/api/pizarra-sync</code>.';
+    }
+    return;
+  }
+
+  // Filtrar por período
+  let serie = serieFull;
+  if(PIZARRA.period > 0) {
+    const cut = new Date(); cut.setDate(cut.getDate() - PIZARRA.period);
+    const cutISO = cut.toISOString().slice(0,10);
+    serie = serieFull.filter(p => p.fecha >= cutISO);
+    if(serie.length === 0) serie = serieFull.slice(-30); // si el corte deja vacío, mostrar lo último
+  }
+
+  const labels = serie.map(p => {
+    const [y,m,d] = p.fecha.split('-');
+    return `${d}/${m}/${String(y).slice(-2)}`;
+  });
+  const data = serie.map(p => p.precio);
+  const color = PIZARRA_COLORS[PIZARRA.grano] || '#32E8A9';
+
+  if(foot) {
+    const last = serie[serie.length-1];
+    foot.innerHTML = `Pizarra $/tn · último: <strong>$${last.precio.toLocaleString('es-AR',{maximumFractionDigits:0})}</strong> (${labels[labels.length-1]}) · ${serie.length} registros · Fuente: Cámara Arbitral de Cereales, Rosario.`;
+  }
+
+  const ctx = document.getElementById('pizarra-chart');
+  if(!ctx) return;
+  if(charts['pizarra']) charts['pizarra'].destroy();
+  charts['pizarra'] = new Chart(ctx.getContext('2d'), {
+    type:'line',
+    data:{ labels, datasets:[{
+      label: PIZARRA_GRAINS.find(g=>g.k===PIZARRA.grano)?.lbl + ' — pizarra ($/tn)',
+      data, borderColor: color, backgroundColor: color+'22',
+      fill:true, borderWidth:2, pointRadius:0, tension:0.25,
+    }]},
+    options: baseOpts()
+  });
 }
 
 // Helper para renderizar un strip de chips (CME spot o dólar plaza)
