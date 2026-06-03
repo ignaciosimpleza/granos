@@ -1,110 +1,39 @@
-// api/fas.js — Proxy para FAS oficial (DINEM / MAGYP)
+// api/fas.js — Proxy para FAS Teórico oficial (DINEM / MAGYP)
 // Subir a: /api/fas.js en tu proyecto Vercel
 // Fuente: https://dinem.magyp.gob.ar/dinem_fas.cfas_all.aspx
-// Uso:    /api/fas            -> { ok, fecha, fas:{soja, aceite, ...}, rows:[...] }
-//         /api/fas?debug=1    -> agrega html_preview para inspeccionar el HTML crudo
 //
-// Devuelve el FAS en PESOS ($/tn) por grano. El parser es tolerante: si no logra
-// leer la tabla, devuelve fas:{} y el front cae al FAS calculado (no rompe nada).
+// La página es GeneXus: los datos NO están en una tabla HTML común, sino
+// embebidos en un <input hidden> con un JSON posicional:
+//   W0031GridContainerDataV  -> pestaña "Der.Export.Completo"  (default)
+//   W0039GridContainerDataV  -> pestaña "Der.Export.Reducido"
+// Cada fila (ordenadas de más reciente a más vieja):
+//   [Fecha, TrigoPan, Maíz, CebadaCerv, CebadaForr, Sorgo, Soja, Girasol, Ac.Soja, Ac.Girasol]
+// Los importes son pesos por tonelada (enteros, sin separadores). Ej: "487182" = $487.182/tn.
+//
+// Uso: /api/fas               -> Completo (default), última fecha disponible
+//      /api/fas?tab=reducido  -> Derecho de Exportación Reducido
+//      /api/fas?debug=1        -> agrega filas crudas + columnas para inspección
 
 const SOURCE_URL = 'https://dinem.magyp.gob.ar/dinem_fas.cfas_all.aspx';
 
-// Mapa de etiquetas de DINEM -> clave interna del sitio.
-// El orden importa: las variantes (Ac.Soja, Harina) se chequean ANTES que "soja".
-const LABEL_MAP = [
-  { key: 'aceite',  re: /ac\.?\s*soja|aceite\s*(de\s*)?soja|aceite/i },
-  { key: 'harina',  re: /harina|pellet|pellets|expeller/i },
-  { key: 'maiz',    re: /ma[ií]z/i },
-  { key: 'trigo',   re: /trigo/i },
-  { key: 'girasol', re: /girasol/i },
-  { key: 'sorgo',   re: /sorgo/i },
-  { key: 'cebada',  re: /cebada/i },
-  { key: 'soja',    re: /soja|poroto/i }, // catch-all al final
+// Orden FIJO de columnas del grid DINEM -> clave interna del sitio.
+// (índice 0 = Fecha). 'harina' no existe en DINEM, por eso el front cae al calculado.
+const COL_KEYS = [
+  'fecha', 'trigo', 'maiz', 'cebada_c', 'cebada_f',
+  'sorgo', 'soja', 'girasol', 'aceite', 'aceite_girasol',
 ];
 
-function decodeEntities(s) {
-  return String(s)
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&aacute;/gi, 'á').replace(/&eacute;/gi, 'é').replace(/&iacute;/gi, 'í')
-    .replace(/&oacute;/gi, 'ó').replace(/&uacute;/gi, 'ú').replace(/&ntilde;/gi, 'ñ')
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
-}
-
-function stripTags(html) {
-  return decodeEntities(String(html).replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
-}
-
-// Parsea números en formato argentino: "453.000,50" -> 453000.5 ; "453.000" -> 453000
-function parseAR(raw) {
-  if (raw == null) return NaN;
-  const s = String(raw).replace(/[^\d.,]/g, '');
-  if (!s) return NaN;
-  let n;
-  if (s.includes(',')) {
-    n = s.replace(/\./g, '').replace(',', '.');           // coma = decimal
-  } else {
-    n = s.replace(/\.(?=\d{3}(\D|$))/g, '');               // puntos = miles
+// Extrae y parsea el JSON del input hidden GeneXus (W0031 / W0039).
+function extractGridData(html, gridId) {
+  // El value va entre comillas simples y el JSON solo usa comillas dobles.
+  const re = new RegExp(gridId + 'GridContainerDataV"\\s+value=\'([^\']*)\'');
+  const m = html.match(re);
+  if (!m) return null;
+  try {
+    return JSON.parse(m[1]);
+  } catch {
+    return null;
   }
-  const v = parseFloat(n);
-  return Number.isFinite(v) ? v : NaN;
-}
-
-function getRows(tableHtml) {
-  const rows = [];
-  const trRe = /<tr[\s\S]*?<\/tr>/gi;
-  let m;
-  while ((m = trRe.exec(tableHtml)) !== null) {
-    const cells = [];
-    const cellRe = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
-    let c;
-    while ((c = cellRe.exec(m[0])) !== null) cells.push(stripTags(c[1]));
-    if (cells.length) rows.push(cells);
-  }
-  return rows;
-}
-
-function matchProduct(label) {
-  for (const { key, re } of LABEL_MAP) if (re.test(label)) return key;
-  return null;
-}
-
-// Elige, dentro de una fila de producto, la celda que corresponde al FAS en pesos.
-// 1) Si detectamos el índice de columna "FAS $" por el header, lo usamos.
-// 2) Si no, tomamos el mayor número >= 1000 (los pesos son ~cientos de miles;
-//    años/porcentajes/u$s quedan descartados).
-function pickFasValue(cells, fasColIdx) {
-  if (fasColIdx != null && fasColIdx < cells.length) {
-    const v = parseAR(cells[fasColIdx]);
-    if (Number.isFinite(v) && v >= 1000) return v;
-  }
-  let best = NaN;
-  for (const cell of cells) {
-    const v = parseAR(cell);
-    if (Number.isFinite(v) && v >= 1000 && (!Number.isFinite(best) || v > best)) best = v;
-  }
-  return Number.isFinite(best) ? best : null;
-}
-
-// Busca una fila de header que contenga "FAS" y devuelve el índice de columna
-// preferentemente marcada con $ / pesos.
-function findFasColumn(rows) {
-  for (const cells of rows) {
-    const idxs = [];
-    cells.forEach((c, i) => { if (/fas/i.test(c)) idxs.push(i); });
-    if (!idxs.length) continue;
-    const pesos = idxs.find(i => /\$|peso/i.test(cells[i]));
-    return pesos != null ? pesos : idxs[idxs.length - 1];
-  }
-  return null;
-}
-
-function findFecha(html) {
-  // dd/mm/aaaa en cualquier parte del documento
-  const m = html.match(/(\d{2}\/\d{2}\/\d{4})/);
-  return m ? m[1] : null;
 }
 
 export default async function handler(req, res) {
@@ -113,7 +42,9 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-cache, no-store');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const debug = req.query?.debug;
+  const reducido = req.query?.tab === 'reducido' || req.query?.tab === 'reduced';
+  const gridId   = reducido ? 'W0039' : 'W0031';
+  const debug    = req.query?.debug;
 
   try {
     const response = await fetch(SOURCE_URL, {
@@ -130,42 +61,34 @@ export default async function handler(req, res) {
     }
 
     const html = await response.text();
+    const rows = extractGridData(html, gridId);
 
-    // Elegir la tabla con más coincidencias de productos
-    const tables = html.match(/<table[\s\S]*?<\/table>/gi) || [];
-    let bestRows = [], bestScore = -1;
-    for (const t of tables) {
-      const rows = getRows(t);
-      let score = 0;
-      for (const cells of rows) if (cells.length && matchProduct(cells.join(' '))) score++;
-      if (score > bestScore) { bestScore = score; bestRows = rows; }
+    if (!Array.isArray(rows) || rows.length === 0) {
+      const out = { ok: false, error: 'No se pudo leer el grid de DINEM', fas: {} };
+      if (debug) out.html_preview = html.substring(0, 4000);
+      return res.status(200).json(out);
     }
-    // Si no hubo <table>, intentar sobre todo el documento
-    if (!bestRows.length) bestRows = getRows(html);
 
-    const fasColIdx = findFasColumn(bestRows);
+    const latest = rows[0];                 // ordenado DSC por fecha -> el más reciente
+    const fecha  = latest[0] || null;
 
     const fas = {};
-    const rowsDebug = [];
-    for (const cells of bestRows) {
-      const label = cells.join(' ');
-      const prod = matchProduct(label);
-      if (!prod) continue;
-      const val = pickFasValue(cells, fasColIdx);
-      rowsDebug.push({ prod, label: cells[0] || label, cells, val });
-      // Si un mismo producto aparece más de una vez, nos quedamos con el primero
-      if (val != null && fas[prod] == null) fas[prod] = val;
+    for (let i = 1; i < COL_KEYS.length && i < latest.length; i++) {
+      const v = parseInt(String(latest[i]).replace(/[^\d]/g, ''), 10);
+      if (Number.isFinite(v) && v > 0) fas[COL_KEYS[i]] = v;   // pesos/tn
     }
 
     const out = {
-      ok: Object.keys(fas).length > 0,
-      fecha: findFecha(html),
-      fas,
-      rows: rowsDebug,
+      ok:     Object.keys(fas).length > 0,
+      tab:    reducido ? 'reducido' : 'completo',
+      fecha,
+      fas,                                  // {soja, maiz, trigo, girasol, aceite, sorgo, cebada_c, cebada_f, aceite_girasol}
       source: SOURCE_URL,
     };
-    if (debug) out.html_preview = html.substring(0, 4000);
-
+    if (debug) {
+      out.rows    = rows.slice(0, 5);
+      out.columns = COL_KEYS;
+    }
     return res.json(out);
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message, fas: {} });
