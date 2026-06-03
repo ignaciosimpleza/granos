@@ -1316,7 +1316,15 @@ body {
     </div>
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px 0">
       <div id="pizarra-grains" style="display:flex;gap:5px;flex-wrap:wrap"></div>
-      <div class="period-btns" id="pizarra-periods" style="margin-left:auto"></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto">
+        <span style="font-size:10px;font-weight:600;color:var(--text3)">Desde</span>
+        <input type="date" id="pizarra-desde" onchange="onPizarraDate()"
+          style="border:1px solid var(--border);border-radius:5px;padding:3px 6px;font-size:11px;font-family:'Sora',sans-serif;color:var(--text);background:var(--bg2);outline:none">
+        <span style="font-size:10px;font-weight:600;color:var(--text3)">Hasta</span>
+        <input type="date" id="pizarra-hasta" onchange="onPizarraDate()"
+          style="border:1px solid var(--border);border-radius:5px;padding:3px 6px;font-size:11px;font-family:'Sora',sans-serif;color:var(--text);background:var(--bg2);outline:none">
+        <div class="period-btns" id="pizarra-periods"></div>
+      </div>
     </div>
     <div class="chart-wrap tall"><canvas id="pizarra-chart"></canvas></div>
     <div class="source" id="pizarra-foot">Precios de pizarra ($/tn) — Cámara Arbitral de Cereales, Rosario.</div>
@@ -2941,7 +2949,8 @@ function renderLiveTab() {
 const PIZARRA = {
   data:    {},        // {soja:[{fecha,precio}], ...}
   grano:   'soja',
-  period:  365,       // días; 0 = todo
+  desde:   '',        // 'YYYY-MM-DD' (vacío = sin límite inferior)
+  hasta:   '',        // 'YYYY-MM-DD' (vacío = sin límite superior)
   loaded:  false,
   loading: false,
   error:   false,
@@ -2952,6 +2961,24 @@ const PIZARRA_GRAINS = [
 ];
 const PIZARRA_COLORS = { soja:'#32E8A9', maiz:'#F7DC6F', trigo:'#CD6155', girasol:'#6C868C', sorgo:'#8B7FA5' };
 const PIZARRA_PERIODS = [ {d:90,l:'90D'}, {d:365,l:'1A'}, {d:1825,l:'5A'}, {d:0,l:'Todo'} ];
+
+function isoDate(d) { return d.toISOString().slice(0,10); }
+// Atajo de período: completa los campos Desde/Hasta
+function setPizarraRangeDays(d) {
+  if(d > 0) {
+    const f = new Date(); f.setDate(f.getDate() - d);
+    PIZARRA.desde = isoDate(f);
+    PIZARRA.hasta = isoDate(new Date());
+  } else {
+    PIZARRA.desde = ''; PIZARRA.hasta = '';   // Todo
+  }
+  renderPizarraCard();
+}
+function onPizarraDate() {
+  PIZARRA.desde = document.getElementById('pizarra-desde')?.value || '';
+  PIZARRA.hasta = document.getElementById('pizarra-hasta')?.value || '';
+  renderPizarraCard();
+}
 
 async function loadPizarra() {
   PIZARRA.loading = true;
@@ -2967,6 +2994,12 @@ async function loadPizarra() {
       const first = PIZARRA_GRAINS.find(g => (PIZARRA.data[g.k] || []).length > 0);
       if(first) PIZARRA.grano = first.k;
     }
+    // Rango por defecto: último año
+    if(!PIZARRA.desde && !PIZARRA.hasta) {
+      const f = new Date(); f.setFullYear(f.getFullYear() - 1);
+      PIZARRA.desde = isoDate(f);
+      PIZARRA.hasta = isoDate(new Date());
+    }
   } catch(e) {
     console.warn('[pizarra]', e.message);
     PIZARRA.error = true;
@@ -2977,7 +3010,6 @@ async function loadPizarra() {
 }
 
 function setPizarraGrain(g) { PIZARRA.grano = g; renderPizarraCard(); }
-function setPizarraPeriod(d) { PIZARRA.period = d; renderPizarraCard(); }
 
 function renderPizarraCard() {
   // Botonera de granos
@@ -2992,13 +3024,16 @@ function renderPizarraCard() {
                background:${on?PIZARRA_COLORS[g.k]:'#fff'};color:${on?'#1a1d23':(has?'var(--text3)':'var(--text4)')};opacity:${has?1:0.5}">${g.lbl}</button>`;
     }).join('');
   }
-  // Botonera de período
+  // Atajos de período (rellenan Desde/Hasta)
   const pWrap = document.getElementById('pizarra-periods');
   if(pWrap) {
     pWrap.innerHTML = PIZARRA_PERIODS.map(p =>
-      `<button class="period-btn ${PIZARRA.period===p.d?'active':''}" onclick="setPizarraPeriod(${p.d})">${p.l}</button>`
+      `<button class="period-btn" onclick="setPizarraRangeDays(${p.d})">${p.l}</button>`
     ).join('');
   }
+  // Reflejar el rango actual en los inputs de fecha
+  const dEl = document.getElementById('pizarra-desde'); if(dEl) dEl.value = PIZARRA.desde || '';
+  const hEl = document.getElementById('pizarra-hasta'); if(hEl) hEl.value = PIZARRA.hasta || '';
 
   const foot = document.getElementById('pizarra-foot');
   const serieFull = PIZARRA.data[PIZARRA.grano] || [];
@@ -3014,13 +3049,15 @@ function renderPizarraCard() {
     return;
   }
 
-  // Filtrar por período
+  // Filtrar por rango Desde/Hasta
   let serie = serieFull;
-  if(PIZARRA.period > 0) {
-    const cut = new Date(); cut.setDate(cut.getDate() - PIZARRA.period);
-    const cutISO = cut.toISOString().slice(0,10);
-    serie = serieFull.filter(p => p.fecha >= cutISO);
-    if(serie.length === 0) serie = serieFull.slice(-30); // si el corte deja vacío, mostrar lo último
+  if(PIZARRA.desde) serie = serie.filter(p => p.fecha >= PIZARRA.desde);
+  if(PIZARRA.hasta) serie = serie.filter(p => p.fecha <= PIZARRA.hasta);
+
+  if(serie.length === 0) {
+    if(charts['pizarra']) { charts['pizarra'].destroy(); charts['pizarra'] = null; }
+    if(foot) foot.innerHTML = 'Sin registros en el rango elegido — ampliá las fechas.';
+    return;
   }
 
   const labels = serie.map(p => {
@@ -3029,23 +3066,29 @@ function renderPizarraCard() {
   });
   const data = serie.map(p => p.precio);
   const color = PIZARRA_COLORS[PIZARRA.grano] || '#32E8A9';
+  const fmt$ = v => '$' + Number(v).toLocaleString('es-AR', { maximumFractionDigits: 0 });
 
   if(foot) {
+    const precios = serie.map(p => p.precio);
     const last = serie[serie.length-1];
-    foot.innerHTML = `Pizarra $/tn · último: <strong>$${last.precio.toLocaleString('es-AR',{maximumFractionDigits:0})}</strong> (${labels[labels.length-1]}) · ${serie.length} registros · Fuente: Cámara Arbitral de Cereales, Rosario.`;
+    const min = Math.min(...precios), max = Math.max(...precios);
+    foot.innerHTML = `Pizarra $/tn · último: <strong>${fmt$(last.precio)}</strong> (${labels[labels.length-1]}) · mín ${fmt$(min)} · máx ${fmt$(max)} · ${serie.length} registros · Fuente: Cámara Arbitral de Cereales, Rosario.`;
   }
 
   const ctx = document.getElementById('pizarra-chart');
   if(!ctx) return;
   if(charts['pizarra']) charts['pizarra'].destroy();
+  const opts = baseOpts();
+  opts.scales.y.ticks = { ...(opts.scales.y.ticks || {}), callback: v => fmt$(v) };
+  opts.plugins.tooltip.callbacks = { label: c => ' ' + fmt$(c.parsed.y) };
   charts['pizarra'] = new Chart(ctx.getContext('2d'), {
     type:'line',
     data:{ labels, datasets:[{
-      label: PIZARRA_GRAINS.find(g=>g.k===PIZARRA.grano)?.lbl + ' — pizarra ($/tn)',
+      label: (PIZARRA_GRAINS.find(g=>g.k===PIZARRA.grano)?.lbl || '') + ' — pizarra ($/tn)',
       data, borderColor: color, backgroundColor: color+'22',
       fill:true, borderWidth:2, pointRadius:0, tension:0.25,
     }]},
-    options: baseOpts()
+    options: opts
   });
 }
 
