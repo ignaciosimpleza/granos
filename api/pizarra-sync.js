@@ -89,13 +89,22 @@ function norm(s) {
   return String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 }
 
-// Descubre IDs de producto desde cualquier <option value="N">Label</option> de la página.
+// Descubre IDs de producto. Hay varios <select> con value numéricos (producto, mes, año)
+// que colisionan, así que elegimos el <select> que más etiquetas de granos contiene.
 function discoverProducts(html) {
-  const map = {};
-  const re = /<option[^>]*value=["'](\d+)["'][^>]*>([^<]+)<\/option>/gi;
-  let m;
-  while ((m = re.exec(html)) !== null) map[+m[1]] = stripTags(m[2]);
-  return map;
+  const selRe = /<select[\s\S]*?<\/select>/gi;
+  let best = {}, bestScore = -1, sm;
+  while ((sm = selRe.exec(html)) !== null) {
+    const map = {};
+    const oRe = /<option[^>]*value=["'](\d+)["'][^>]*>([^<]+)<\/option>/gi;
+    let m;
+    while ((m = oRe.exec(sm[0])) !== null) map[+m[1]] = stripTags(m[2]);
+    const labels = Object.values(map).map(norm);
+    let score = 0;
+    for (const g of GRAINS) if (labels.some(l => g.re.test(l))) score++;
+    if (score > bestScore) { bestScore = score; best = map; }
+  }
+  return best;
 }
 function resolveIds(prodMap) {
   const ids = {};
