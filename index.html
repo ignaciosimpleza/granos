@@ -2503,7 +2503,7 @@ async function fetchLiveAll() {
 
   // If FAS DINEM failed, try cache (si tampoco hay caché, la tabla cae al FAS calculado)
   if(fasResult.status === 'rejected') {
-    const cached = loadCache(CACHE_KEY_FAS);
+    const cached = loadCache(fasCacheKey());
     if(cached && Object.keys(cached.data?.fas || {}).length > 0) {
       LIVE.fasDinem        = cached.data.fas;
       LIVE.fasDinemFecha   = cached.data.fecha;
@@ -2706,8 +2706,16 @@ function parseFOB(posts, fecha) {
 }
 
 // ── FAS oficial — DINEM / MAGYP (en pesos) ─────────────────────────
+// Pestaña DINEM seleccionada: 'completo' (Der. Export. Completo) o 'reducido'.
+const FAS_TAB_KEY = 'smz_fas_tab';
+function getFasTab() {
+  return localStorage.getItem(FAS_TAB_KEY) === 'reducido' ? 'reducido' : 'completo';
+}
+function fasCacheKey(tab) { return CACHE_KEY_FAS + '_' + (tab || getFasTab()); }
+
 async function fetchFASDinem() {
-  const res = await fetch(FAS_PROXY_URL, { signal: AbortSignal.timeout(12000) });
+  const tab = getFasTab();
+  const res = await fetch(`${FAS_PROXY_URL}?tab=${tab}`, { signal: AbortSignal.timeout(12000) });
   if(!res.ok) throw new Error('HTTP ' + res.status);
   const json = await res.json();
   LIVE.fasDinem = {};
@@ -2715,11 +2723,39 @@ async function fetchFASDinem() {
     if(Number.isFinite(+v) && +v > 0) LIVE.fasDinem[k] = +v;
   });
   LIVE.fasDinemFecha = json.fecha || null;
+  LIVE.fasDinemTab   = json.tab   || tab;
   if(Object.keys(LIVE.fasDinem).length === 0) {
     throw new Error(json.error || 'Sin datos FAS en DINEM');
   }
-  console.log('[FAS] DINEM', LIVE.fasDinemFecha, LIVE.fasDinem);
-  saveCache(CACHE_KEY_FAS, { fas: LIVE.fasDinem, fecha: LIVE.fasDinemFecha });
+  console.log('[FAS] DINEM', LIVE.fasDinemTab, LIVE.fasDinemFecha, LIVE.fasDinem);
+  saveCache(fasCacheKey(tab), { fas: LIVE.fasDinem, fecha: LIVE.fasDinemFecha });
+}
+
+// Cambia entre FAS Completo / Reducido: muestra caché al toque y re-consulta DINEM.
+async function setFasTab(tab) {
+  const norm = tab === 'reducido' ? 'reducido' : 'completo';
+  localStorage.setItem(FAS_TAB_KEY, norm);
+
+  // Feedback inmediato: cargar caché de esa pestaña si existe
+  const cached = loadCache(fasCacheKey(norm));
+  if(cached && Object.keys(cached.data?.fas || {}).length > 0) {
+    LIVE.fasDinem      = cached.data.fas;
+    LIVE.fasDinemFecha = cached.data.fecha;
+    LIVE.fasDinemTab   = norm;
+    LIVE.fromCache.fas = true;
+  } else {
+    LIVE.fasDinem = {};
+  }
+  renderFOBLiveTable();
+
+  // Re-consultar DINEM para la pestaña elegida
+  try {
+    await fetchFASDinem();
+    LIVE.fromCache.fas = false;
+  } catch(e) {
+    console.warn('[FAS] setFasTab refetch:', e.message);
+  }
+  renderFOBLiveTable();
 }
 
 // FAS oficial DINEM en $/tn para un producto, o null si DINEM no lo publica.
@@ -3038,14 +3074,32 @@ function renderFOBLiveTable() {
     </tr>`;
   }).join('');
 
+  // Toggle Completo / Reducido (pestañas de DINEM)
+  const fasTab = getFasTab();
+  const tabLbl = fasTab === 'reducido' ? 'Der. Export. Reducido' : 'Der. Export. Completo';
+  const tabBtn = (val, label) => {
+    const on = fasTab === val;
+    return `<button onclick="setFasTab('${val}')"
+      style="border:none;padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Sora',sans-serif;
+             background:${on?'var(--azul-pizarra)':'#fff'};color:${on?'#fff':'var(--text3)'}">${label}</button>`;
+  };
+  const fasToggle = `
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 16px 2px;flex-wrap:wrap">
+      <span style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px">FAS ($) DINEM · Derecho de exportación</span>
+      <div style="display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+        ${tabBtn('completo','Completo')}${tabBtn('reducido','Reducido')}
+      </div>
+    </div>`;
+
   // Atribución de la fuente del FAS ($) oficial
   const dinemTag = LIVE.fromCache?.fas
-    ? `⚠ FAS ($) oficial cacheado${LIVE.fasDinemFecha ? ' · '+LIVE.fasDinemFecha : ''}`
+    ? `⚠ FAS ($) oficial cacheado · ${tabLbl}${LIVE.fasDinemFecha ? ' · '+LIVE.fasDinemFecha : ''}`
     : (Object.keys(LIVE.fasDinem).length
-        ? `FAS ($) oficial: <a href="https://dinem.magyp.gob.ar/dinem_fas.cfas_all.aspx" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">DINEM/MAGYP</a>${LIVE.fasDinemFecha ? ' · '+LIVE.fasDinemFecha : ''}`
-        : 'FAS ($) oficial DINEM no disponible — mostrando calculado');
+        ? `FAS ($) oficial: <a href="https://dinem.magyp.gob.ar/dinem_fas.cfas_all.aspx" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">DINEM/MAGYP</a> · ${tabLbl}${LIVE.fasDinemFecha ? ' · '+LIVE.fasDinemFecha : ''}`
+        : `FAS ($) oficial DINEM no disponible (${tabLbl}) — mostrando calculado`);
 
   wrap.innerHTML = `
+  ${fasToggle}
   <div style="overflow-x:auto">
     <table class="data-table">
       <thead><tr>
