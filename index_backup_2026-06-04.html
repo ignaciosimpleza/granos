@@ -755,11 +755,39 @@ body {
   <nav class="sidebar-nav">
     <div class="nav-section-label">Análisis</div>
     <div class="nav-item active" onclick="showTab('live',this)" style="color:var(--verde-menta)">⚡ Datos en Vivo</div>
+    <div class="nav-item" onclick="showTab('overview',this)">Resumen</div>
+    <div class="nav-item" onclick="showTab('prices',this)">Precios CME / ARG</div>
+    <div class="nav-item" onclick="showTab('stocks',this)">Stocks Mundiales</div>
+    <div class="nav-item" onclick="showTab('wasde',this)">WASDE</div>
+    <div class="nav-section-label">Por región</div>
+    <div class="nav-item" onclick="showTab('usa-crops',this)">EE.UU.</div>
+    <div class="nav-item" onclick="showTab('china',this)">China</div>
+    <div class="nav-item" onclick="showTab('countries',this)">Soja &amp; Maíz — Países</div>
+    <div class="nav-section-label">Mercados</div>
+    <div class="nav-item" onclick="showTab('funds',this)">Fondos CFTC</div>
+    <div class="nav-item" onclick="showTab('fob',this)">FOB Internacional</div>
+    <div class="nav-item" onclick="showTab('macro',this)">Macro / FED</div>
+    <div class="nav-item" onclick="showTab('signals',this)">Señales</div>
+    <div class="nav-section-label">Gestión</div>
+    <div class="nav-item" onclick="showTab('update',this)">Actualizar datos</div>
   </nav>
 
+  <div class="sidebar-grain">
+    <div class="sidebar-grain-label">Grano activo</div>
+    <div class="grain-pills-grid">
+      <button class="grain-pill active" onclick="selectGrain('soja',this)">Soja</button>
+      <button class="grain-pill" onclick="selectGrain('trigo',this)">Trigo</button>
+      <button class="grain-pill" onclick="selectGrain('maiz',this)">Maíz</button>
+      <button class="grain-pill" onclick="selectGrain('cebada',this)">Cebada</button>
+      <button class="grain-pill" onclick="selectGrain('girasol',this)" style="grid-column:span 2">Girasol</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ TOPBAR ═══ -->
 <header class="topbar">
   <div class="topbar-left">
-    <span id="topbar-title">Datos en Vivo — Mercado de Granos</span>
+    <span id="topbar-title">Resumen</span>
   </div>
   <div class="topbar-right">
     <div class="live-status-badge" id="live-status" onclick="showTab('live',document.querySelector('[onclick*=\'live\']'))" title="Ver datos en vivo">
@@ -775,6 +803,384 @@ body {
 <div class="content-area">
 
 <!-- ═══════════ OVERVIEW ═══════════ -->
+<div id="tab-overview" class="main">
+    <div class="g4" id="kpi-row"></div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Evolución de precio — USD/Tn</span>
+        <div class="period-btns">
+          <button class="period-btn active" onclick="setOvPeriod(30,this)">30D</button>
+          <button class="period-btn" onclick="setOvPeriod(90,this)">90D</button>
+          <button class="period-btn" onclick="setOvPeriod(365,this)">1 Año</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="ov-price" height="150"></canvas></div>
+      <div class="source">Fuente: Simpleza en base a CME y A3 Mercados.</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Factores de riesgo clave</span></div>
+      <div class="card-body" id="risk-factors"></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Estacionalidad histórica — variación mensual promedio</span></div>
+      <div class="card-body" style="padding-bottom:8px">
+        <div class="season-grid" id="season-grid"></div>
+      </div>
+      <div class="source">Fuente: Simpleza en base a CME.</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Riesgos geopolíticos</span></div>
+      <div class="card-body" id="geo-risks"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ PRICES ═══════════ -->
+<div id="tab-prices" class="main">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap">
+    <span style="font-size:11px;font-weight:600;color:var(--text3)">Posición:</span>
+    <select class="pos-select" id="pos-sel" onchange="refreshPriceChart()"></select>
+    <span style="font-size:11px;font-weight:600;color:var(--text3)">Período:</span>
+    <div class="period-btns">
+      <button class="period-btn active" onclick="setPricePeriod(30,this)">30D</button>
+      <button class="period-btn" onclick="setPricePeriod(90,this)">90D</button>
+      <button class="period-btn" onclick="setPricePeriod(365,this)">1 Año</button>
+      <button class="period-btn" onclick="setPricePeriod(1825,this)">5 Años</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-header">
+      <span class="card-title">Evolución de precios — USD/Tn</span>
+      <span class="card-source">CME Chicago vs Argentina (A3)</span>
+    </div>
+    <div class="chart-wrap"><canvas id="price-main" height="190"></canvas></div>
+    <div class="ref-labels">
+      <div class="ref-item"><div class="ref-dot" style="background:var(--teal);height:2px"></div>CME Chicago</div>
+      <div class="ref-item"><div class="ref-dot" style="background:var(--blue);height:2px;border-top:2px dashed var(--blue)"></div>Argentina A3</div>
+      <div class="ref-item"><div class="ref-dot" style="background:#9b2226;height:2px;border-top:2px dashed #9b2226"></div>Promedio período</div>
+    </div>
+    <div class="source">Fuente: Simpleza en base a CME y A3 Mercados.</div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="teal-header">Posiciones disponibles — CME Chicago</div>
+      <div class="card-body" style="padding:0">
+        <table class="price-table">
+          <thead><tr><th>Posición</th><th>Último (USD/Tn)</th><th>Variación</th><th>Máx</th><th>Mín</th></tr></thead>
+          <tbody id="cme-tbody"></tbody>
+        </table>
+      </div>
+      <div class="source">Fuente: Simpleza en base a CME.</div>
+    </div>
+    <div class="card">
+      <div class="teal-header">Posiciones disponibles — Argentina (A3)</div>
+      <div class="card-body" style="padding:0">
+        <table class="price-table">
+          <thead><tr><th>Posición</th><th>Último (USD/Tn)</th><th>Variación</th><th>Máx</th><th>Mín</th></tr></thead>
+          <tbody id="arg-tbody"></tbody>
+        </table>
+      </div>
+      <div class="source">Fuente: Simpleza en base a A3 Mercados.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ STOCKS ═══════════ -->
+<div id="tab-stocks" class="main">
+    <div class="g3" style="margin-bottom:18px">
+    <div class="kpi blue-top"><div class="kpi-label">Stocks finales actuales</div><div class="kpi-val" id="st-val">—</div><div class="kpi-sub">Millones de toneladas</div></div>
+    <div class="kpi yellow-top"><div class="kpi-label">Ratio stock / uso</div><div class="kpi-val" id="st-ratio">—</div><div class="kpi-sub">% del consumo anual</div></div>
+    <div class="kpi"><div class="kpi-label">Var. año anterior</div><div class="kpi-val" id="st-yoy">—</div><div class="kpi-sub">Interanual</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-header">
+      <span class="card-title">Evolución stocks finales mundiales — Mill. de Tn</span>
+      <div class="period-btns">
+        <button class="period-btn active" onclick="setStockView('abs',this)">Absoluto</button>
+        <button class="period-btn" onclick="setStockView('ratio',this)">Stock/Uso %</button>
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="world-stocks" height="165"></canvas></div>
+    <div class="source">Fuente: Simpleza en base a USDA/WASDE.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Stocks finales por país — campaña 24/25</span></div>
+    <div class="chart-wrap"><canvas id="country-stocks" height="165"></canvas></div>
+    <div class="source">Fuente: Simpleza en base a USDA/WASDE.</div>
+  </div>
+</div>
+
+<!-- ═══════════ WASDE ═══════════ -->
+<div id="tab-wasde" class="main">
+    <div class="g4" style="margin-bottom:18px">
+    <div class="kpi"><div class="kpi-label">Producción mundial</div><div class="kpi-val up" id="w-prod">—</div><div class="kpi-sub" id="w-prod-chg">vs mes ant.: —</div></div>
+    <div class="kpi yellow-top"><div class="kpi-label">Consumo mundial</div><div class="kpi-val neu" id="w-cons">—</div><div class="kpi-sub" id="w-cons-chg">vs mes ant.: —</div></div>
+    <div class="kpi blue-top"><div class="kpi-label">Exportaciones</div><div class="kpi-val" id="w-exp">—</div><div class="kpi-sub" id="w-exp-chg">vs mes ant.: —</div></div>
+    <div class="kpi red-top"><div class="kpi-label">Stocks finales</div><div class="kpi-val dn" id="w-stocks">—</div><div class="kpi-sub" id="w-stk-chg">vs mes ant.: —</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="teal-header">Detalle por país — Producción · Consumo · Exportaciones · Stocks finales</div>
+    <div style="overflow-x:auto">
+      <table class="data-table" id="wasde-table"></table>
+    </div>
+    <div class="source">Fuente: Simpleza en base a USDA/WASDE.</div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Stocks finales por país — Mill. Tn</span></div>
+      <div class="chart-wrap"><canvas id="wasde-stk-chart" height="170"></canvas></div>
+      <div class="source">Fuente: Simpleza en base a USDA/WASDE.</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Balance oferta / demanda — Mill. Tn</span></div>
+      <div class="chart-wrap"><canvas id="wasde-bal-chart" height="170"></canvas></div>
+      <div class="source">Fuente: Simpleza en base a USDA/WASDE.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ USA CROPS ═══════════ -->
+<div id="tab-usa-crops" class="main">
+    <div class="g4" style="margin-bottom:18px">
+    <div class="kpi"><div class="kpi-label">Producción 24/25</div><div class="kpi-val up" id="us-prod">—</div><div class="kpi-sub">Mill. de Tn</div></div>
+    <div class="kpi yellow-top"><div class="kpi-label">Área sembrada</div><div class="kpi-val neu" id="us-area">—</div><div class="kpi-sub">Mill. de acres</div></div>
+    <div class="kpi blue-top"><div class="kpi-label">Rinde promedio</div><div class="kpi-val" id="us-yield">—</div><div class="kpi-sub">Bu/acre</div></div>
+    <div class="kpi red-top"><div class="kpi-label">Stocks / Uso</div><div class="kpi-val dn" id="us-ratio">—</div><div class="kpi-sub">% del consumo</div></div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="teal-header light">Stocks finales EE.UU. — últimas 5 campañas</div>
+      <div class="chart-wrap"><canvas id="us-stocks-chart" height="170"></canvas></div>
+      <div class="source">Fuente: Simpleza en base a USDA/WASDE.</div>
+    </div>
+    <div class="card">
+      <div class="teal-header light">Molienda EE.UU. — últimas 5 campañas</div>
+      <div class="chart-wrap"><canvas id="us-crush-chart" height="170"></canvas></div>
+      <div class="source">Fuente: Simpleza en base a USDA/NASS.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="teal-header">Exportaciones EE.UU. a China vs. años anteriores</div>
+    <div class="chart-wrap"><canvas id="us-china-chart" height="170"></canvas></div>
+    <div class="source">Fuente: Simpleza en base a USDA/FAS.</div>
+  </div>
+</div>
+
+<!-- ═══════════ CHINA ═══════════ -->
+<div id="tab-china" class="main">
+    <div class="g4" style="margin-bottom:18px">
+    <div class="kpi"><div class="kpi-label">Soja importada 2024</div><div class="kpi-val up">105,2 MT</div><div class="kpi-sub">Récord histórico</div></div>
+    <div class="kpi yellow-top"><div class="kpi-label">Maíz importado 2024</div><div class="kpi-val neu">23,5 MT</div><div class="kpi-sub">−18% vs 2023</div></div>
+    <div class="kpi blue-top"><div class="kpi-label">Trigo importado 2024</div><div class="kpi-val">12,7 MT</div><div class="kpi-sub">+5% vs 2023</div></div>
+    <div class="kpi red-top"><div class="kpi-label">Cebada importada 2024</div><div class="kpi-val dn">8,3 MT</div><div class="kpi-sub">+12% vs 2023</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="teal-header">Importaciones mensuales y acumulado — Soja China</div>
+    <div class="chart-wrap"><canvas id="china-monthly" height="190"></canvas></div>
+    <div class="source">Fuente: Simpleza en base a GACC / Aduana China.</div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Importaciones por grano — 2024 vs 2023</span></div>
+      <div class="chart-wrap"><canvas id="china-by-grain" height="170"></canvas></div>
+      <div class="source">Fuente: Simpleza en base a GACC.</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Origen de soja importada por China</span></div>
+      <div class="chart-wrap"><canvas id="china-origin" height="170"></canvas></div>
+      <div class="source">Fuente: Simpleza en base a GACC.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ FUNDS ═══════════ -->
+<div id="tab-funds" class="main">
+    <div class="g3" style="margin-bottom:18px">
+    <div class="kpi"><div class="kpi-label">Fondos especulativos</div><div class="kpi-val up" id="f-spec">—</div><div class="kpi-sub">Contratos netos</div></div>
+    <div class="kpi blue-top"><div class="kpi-label">Fondos index</div><div class="kpi-val" id="f-idx">—</div><div class="kpi-sub">Contratos netos</div></div>
+    <div class="kpi red-top"><div class="kpi-label">Coberturas comerciales</div><div class="kpi-val dn" id="f-hdg">—</div><div class="kpi-sub">Contratos netos</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="teal-header">Evolución posición neta semanal — miles de contratos</div>
+    <div class="chart-wrap"><canvas id="funds-chart" height="190"></canvas></div>
+    <div class="source">Fuente: Simpleza en base a CFTC.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Posición actual por tipo de fondo</span></div>
+    <div class="card-body" id="funds-detail"></div>
+    <div class="source">Fuente: Simpleza en base a CFTC — COT Report semanal.</div>
+  </div>
+</div>
+
+<!-- ═══════════ FOB ═══════════ -->
+<div id="tab-fob" class="main">
+    <div class="card" style="margin-bottom:18px">
+    <div class="teal-header">Precios FOB por país — USD/Tn</div>
+    <div class="chart-wrap"><canvas id="fob-chart" height="210"></canvas></div>
+    <div class="source">Fuente: Simpleza en base a Reuters / Bloomberg.</div>
+  </div>
+
+  <div class="card">
+    <div class="teal-header">Tabla comparativa FOB — última semana</div>
+    <div style="overflow-x:auto">
+      <table class="data-table" id="fob-table"></table>
+    </div>
+    <div class="source">Fuente: Simpleza en base a Reuters / Bloomberg.</div>
+  </div>
+</div>
+
+<!-- ═══════════ COUNTRIES ═══════════ -->
+<div id="tab-countries" class="main">
+    <div class="ctry-tabs">
+    <div class="ctry-tab active" onclick="showCountry('bra',this)">🇧🇷 Brasil</div>
+    <div class="ctry-tab" onclick="showCountry('usa',this)">🇺🇸 EE.UU.</div>
+    <div class="ctry-tab" onclick="showCountry('arg',this)">🇦🇷 Argentina</div>
+  </div>
+
+  <div id="ctry-bra">
+    <div class="g4" style="margin-bottom:16px">
+      <div class="kpi"><div class="kpi-label">Soja prod. 24/25</div><div class="kpi-val up">169,0 MT</div><div class="kpi-sub">+3% vs 23/24</div></div>
+      <div class="kpi"><div class="kpi-label">Maíz prod. 24/25</div><div class="kpi-val up">127,0 MT</div><div class="kpi-sub">+5% vs 23/24</div></div>
+      <div class="kpi yellow-top"><div class="kpi-label">Soja exportaciones</div><div class="kpi-val neu">100,5 MT</div><div class="kpi-sub">Mayor exportador</div></div>
+      <div class="kpi blue-top"><div class="kpi-label">Real / USD</div><div class="kpi-val">5,85</div><div class="kpi-sub">Impacto competitividad</div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="teal-header light">Brasil — Soja: siembra, cosecha, exportaciones</div><div class="chart-wrap"><canvas id="bra-soja" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a CONAB.</div></div>
+      <div class="card"><div class="teal-header light">Brasil — Maíz: evolución de campañas</div><div class="chart-wrap"><canvas id="bra-maiz" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a CONAB.</div></div>
+    </div>
+  </div>
+
+  <div id="ctry-usa" style="display:none">
+    <div class="g4" style="margin-bottom:16px">
+      <div class="kpi"><div class="kpi-label">Soja prod. 24/25</div><div class="kpi-val up">124,9 MT</div><div class="kpi-sub">Récord EE.UU.</div></div>
+      <div class="kpi"><div class="kpi-label">Maíz prod. 24/25</div><div class="kpi-val up">389,7 MT</div><div class="kpi-sub">Récord histórico</div></div>
+      <div class="kpi yellow-top"><div class="kpi-label">Soja exp. contratada</div><div class="kpi-val neu">48,1 MT</div><div class="kpi-sub">Acumulado campaña</div></div>
+      <div class="kpi red-top"><div class="kpi-label">Stocks soja</div><div class="kpi-val dn">7,7 MT</div><div class="kpi-sub">Ratio 7,1%</div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="teal-header light">EE.UU. — Soja: área y producción</div><div class="chart-wrap"><canvas id="usa-soja" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a USDA/NASS.</div></div>
+      <div class="card"><div class="teal-header light">EE.UU. — Maíz: área y producción</div><div class="chart-wrap"><canvas id="usa-maiz" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a USDA/NASS.</div></div>
+    </div>
+  </div>
+
+  <div id="ctry-arg" style="display:none">
+    <div class="g4" style="margin-bottom:16px">
+      <div class="kpi"><div class="kpi-label">Soja prod. 24/25</div><div class="kpi-val up">48,0 MT</div><div class="kpi-sub">Recuperación</div></div>
+      <div class="kpi"><div class="kpi-label">Maíz prod. 24/25</div><div class="kpi-val up">50,0 MT</div><div class="kpi-sub">+8% vs 23/24</div></div>
+      <div class="kpi yellow-top"><div class="kpi-label">Retenciones soja</div><div class="kpi-val neu">33%</div><div class="kpi-sub">Impuesto exportación</div></div>
+      <div class="kpi red-top"><div class="kpi-label">Tipo de cambio</div><div class="kpi-val dn">1.090</div><div class="kpi-sub">ARS/USD oficial</div></div>
+    </div>
+    <div class="g2">
+      <div class="card"><div class="teal-header light">Argentina — Soja: siembra, cosecha, exportaciones</div><div class="chart-wrap"><canvas id="arg-soja" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a INDEC / Bolsa de Rosario.</div></div>
+      <div class="card"><div class="teal-header light">Argentina — Maíz: evolución de campañas</div><div class="chart-wrap"><canvas id="arg-maiz" height="170"></canvas></div><div class="source">Fuente: Simpleza en base a INDEC / Bolsa de Rosario.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MACRO ═══════════ -->
+<div id="tab-macro" class="main">
+    <div class="teal-header" style="border-radius:6px;margin-bottom:14px">Indicadores económicos EE.UU.</div>
+  <div class="g4" style="margin-bottom:20px">
+    <div class="kpi"><div class="kpi-label">PIB EE.UU. 2024</div><div class="kpi-val up">+2,8%</div><div class="kpi-sub">Crecimiento anual</div></div>
+    <div class="kpi yellow-top"><div class="kpi-label">Desempleo EE.UU.</div><div class="kpi-val neu">4,1%</div><div class="kpi-sub">Dic 2024</div></div>
+    <div class="kpi red-top"><div class="kpi-label">Inflación CPI</div><div class="kpi-val dn">2,9%</div><div class="kpi-sub">Dic 2024 (YoY)</div></div>
+    <div class="kpi blue-top"><div class="kpi-label">Consumo personal</div><div class="kpi-val">+3,1%</div><div class="kpi-sub">PCE anualizado</div></div>
+  </div>
+
+  <div class="teal-header" style="border-radius:6px;margin-bottom:14px">Reserva Federal</div>
+  <div class="g3" style="margin-bottom:20px">
+    <div class="kpi"><div class="kpi-label">Tasa actual</div><div class="kpi-val" style="color:var(--teal)">4,25–4,50%</div><div class="kpi-sub">Target range</div></div>
+    <div class="kpi yellow-top"><div class="kpi-label">Recortes esperados 2025</div><div class="kpi-val neu">1–2</div><div class="kpi-sub">Consenso mercado</div></div>
+    <div class="kpi blue-top"><div class="kpi-label">Postura balance</div><div class="kpi-val">QT</div><div class="kpi-sub">Reducción balance</div></div>
+  </div>
+
+  <div class="g2" style="margin-bottom:18px">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Probabilidades de tasas — FedWatch CME</span></div>
+      <div class="chart-wrap"><canvas id="fed-prob" height="165"></canvas></div>
+      <div class="source">Fuente: Simpleza en base a CME FedWatch.</div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Índice Dólar DXY — impacto en granos</span></div>
+      <div class="chart-wrap"><canvas id="dxy-chart" height="165"></canvas></div>
+      <div class="source">Fuente: Simpleza en base a Bloomberg.</div>
+    </div>
+  </div>
+
+  <div class="teal-header" style="border-radius:6px;margin-bottom:14px">S&amp;P 500 &amp; Valoración</div>
+  <div class="g4" style="margin-bottom:18px">
+    <div class="kpi"><div class="kpi-label">S&P 500</div><div class="kpi-val up">5.970</div><div class="kpi-sub">Ene 2025</div></div>
+    <div class="kpi yellow-top"><div class="kpi-label">P/E forward</div><div class="kpi-val neu">21,4x</div><div class="kpi-sub">Valoración elevada</div></div>
+    <div class="kpi blue-top"><div class="kpi-label">EPS crecimiento 2025E</div><div class="kpi-val">+12%</div><div class="kpi-sub">Consenso analistas</div></div>
+    <div class="kpi red-top"><div class="kpi-label">VIX volatilidad</div><div class="kpi-val dn">18,2</div><div class="kpi-sub">Moderada</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Riesgos geopolíticos globales</span></div>
+    <div class="card-body">
+      <div id="geo-macro"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SIGNALS ═══════════ -->
+<div id="tab-signals" class="main">
+    <div class="signal-grid" id="signal-grid"></div>
+</div>
+
+<!-- ═══════════ UPDATE ═══════════ -->
+<div id="tab-update" class="main">
+    <div class="upd-panel">
+    <div class="upd-section-title">Precios spot — ingreso manual</div>
+    <div class="upd-grid" id="price-inputs"></div>
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button class="upd-btn" onclick="savePrices()">Guardar precios</button>
+    </div>
+  </div>
+
+  <div class="upd-panel">
+    <div class="upd-section-title">WASDE — actualizar reporte mensual</div>
+    <div class="upd-grid">
+      <div class="upd-field"><label class="upd-label">Producción mundial (MT)</label><input class="upd-input" id="wi-prod" type="number" placeholder="ej: 422,5"></div>
+      <div class="upd-field"><label class="upd-label">Consumo mundial (MT)</label><input class="upd-input" id="wi-cons" type="number" placeholder="ej: 398,2"></div>
+      <div class="upd-field"><label class="upd-label">Stocks finales (MT)</label><input class="upd-input" id="wi-stk" type="number" placeholder="ej: 124,6"></div>
+      <div class="upd-field"><label class="upd-label">Exportaciones mundiales (MT)</label><input class="upd-input" id="wi-exp" type="number" placeholder="ej: 186,4"></div>
+      <div class="upd-field"><label class="upd-label">Mes del reporte</label><input class="upd-input" id="wi-month" type="text" placeholder="ej: Marzo 2025"></div>
+      <div class="upd-field"><label class="upd-label">Variación vs mes anterior (%)</label><input class="upd-input" id="wi-chg" type="number" placeholder="ej: +0,5"></div>
+    </div>
+    <button class="upd-btn" onclick="saveWasde()">Guardar WASDE</button>
+  </div>
+
+  <div class="upd-panel">
+    <div class="upd-section-title">Posición fondos — COT semanal</div>
+    <div class="upd-grid">
+      <div class="upd-field"><label class="upd-label">Fondos especulativos (contratos)</label><input class="upd-input" id="fi-spec" type="number" placeholder="ej: +45000"></div>
+      <div class="upd-field"><label class="upd-label">Fondos index (contratos)</label><input class="upd-input" id="fi-idx" type="number" placeholder="ej: +82000"></div>
+      <div class="upd-field"><label class="upd-label">Cobertura comercial (contratos)</label><input class="upd-input" id="fi-hdg" type="number" placeholder="ej: -125000"></div>
+    </div>
+    <button class="upd-btn" onclick="saveFunds()">Guardar posición</button>
+  </div>
+</div>
+
+
+
 <!-- ═══════════ LIVE DATA ═══════════ -->
 <div id="tab-live" class="main active">
 
@@ -959,6 +1365,344 @@ let ovPeriod = 30;
 let pricePeriod = 90;
 let charts = {};
 
+function genPriceHist(base, vol, days) {
+  let p = base, arr = [];
+  for (let i = 0; i < days; i++) {
+    p = p * (1 + (Math.random() - 0.5) * vol * 2);
+    p = Math.max(base * 0.72, Math.min(base * 1.35, p));
+    arr.push(+p.toFixed(2));
+  }
+  return arr;
+}
+
+function genDates(days) {
+  const arr = [], now = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now); d.setDate(d.getDate() - i);
+    arr.push(d.toLocaleDateString('es-AR', {day:'2-digit',month:'2-digit'}));
+  }
+  return arr;
+}
+
+const DB = {
+  soja: {
+    name:'Soja',
+    kpis:[
+      {lbl:'Precio spot CME', val:'374,2', unit:'USD/Tn', chg:'+1,2%', up:true},
+      {lbl:'Precio spot ARG (A3)', val:'340,5', unit:'USD/Tn', chg:'−0,8%', up:false},
+      {lbl:'Producción mundial', val:'422,5', unit:'Mill. Tn', chg:'+3,2% YoY', up:true},
+      {lbl:'Stocks finales', val:'124,6', unit:'Mill. Tn', chg:'−0,5% vs ant.', up:false},
+    ],
+    wasde:{prod:'422,5',cons:'398,2',exp:'186,4',stk:'124,6',prodChg:'+3,2',consChg:'+1,8',expChg:'+2,1',stkChg:'−0,5',
+      countries:[
+        {n:'Brasil',prod:'169,0',cons:'54,5',exp:'100,5',imp:'0',stk:'38,2',chg:'+3,1'},
+        {n:'EE.UU.',prod:'124,9',cons:'66,1',exp:'52,4',imp:'0',stk:'7,7',chg:'+5,2'},
+        {n:'Argentina',prod:'48,0',cons:'38,0',exp:'4,5',imp:'0',stk:'3,4',chg:'+20,0'},
+        {n:'China',prod:'20,7',cons:'116,5',exp:'0,5',imp:'105,2',stk:'28,8',chg:'+1,0'},
+        {n:'India',prod:'12,5',cons:'11,8',exp:'1,2',imp:'0',stk:'0,4',chg:'+2,4'},
+        {n:'Paraguay',prod:'11,0',cons:'4,2',exp:'6,5',imp:'0',stk:'1,1',chg:'+4,8'},
+      ]
+    },
+    cmePos:[
+      {nm:'ENE 2025',p:'371,0',chg:'+0,8%',hi:'380,2',lo:'355,1',up:true},
+      {nm:'MAR 2025',p:'374,2',chg:'+1,2%',hi:'382,5',lo:'358,3',up:true},
+      {nm:'MAY 2025',p:'377,8',chg:'+0,9%',hi:'385,0',lo:'362,0',up:true},
+      {nm:'JUL 2025',p:'380,1',chg:'+1,1%',hi:'387,2',lo:'365,4',up:true},
+      {nm:'AGO 2025',p:'361,5',chg:'+0,5%',hi:'370,0',lo:'348,2',up:true},
+      {nm:'SEP 2025',p:'355,2',chg:'+0,3%',hi:'362,8',lo:'342,0',up:true},
+      {nm:'NOV 2025',p:'358,4',chg:'+0,7%',hi:'366,1',lo:'345,5',up:true},
+    ],
+    argPos:[
+      {nm:'DISPONIBLE',p:'340,5',chg:'−0,8%',hi:'350,0',lo:'332,0',up:false},
+      {nm:'ENE 2025',p:'338,0',chg:'−0,5%',hi:'347,5',lo:'330,0',up:false},
+      {nm:'FEB 2025',p:'335,5',chg:'−0,3%',hi:'344,0',lo:'326,5',up:false},
+      {nm:'MAR 2025',p:'337,0',chg:'+0,2%',hi:'345,5',lo:'328,0',up:true},
+      {nm:'ABR 2025',p:'339,5',chg:'+0,4%',hi:'348,0',lo:'330,5',up:true},
+      {nm:'MAY 2025',p:'341,0',chg:'+0,6%',hi:'350,0',lo:'332,0',up:true},
+    ],
+    funds:{spec:'+48.200',idx:'+85.400',hdg:'−132.100'},
+    fundSeries:[-20,5,15,30,45,48,38,25,10,-5,15,30,48],
+    stocks:[124.6,118.3,109.8,115.2,121.4,128.7,124.6],
+    stockRatio:'11,2%', stockYoY:'−0,5 MT',
+    ph: genPriceHist(374,0.015,1825), pa: genPriceHist(340,0.012,1825),
+    season:[-1.2,-0.8,1.5,3.2,2.1,-0.5,-1.8,-0.9,1.2,2.8,3.5,1.0],
+    bull:['Déficit persistente de stocks mundiales: ratio stock/uso en 11,2%, nivel históricamente bajo que limita la capacidad de amortiguación ante cualquier shock de oferta.',
+          'Demanda china sostenida por encima de 105 MT anuales, impulsada por recuperación del sector porcino y expansión de capacidad de crushing.',
+          'El Niño debilitado y perspectiva de La Niña aumentan riesgo climático para Brasil y Argentina en la campaña 24/25.',
+          'Mandatos de biocombustibles crecientes en Brasil, Argentina y EE.UU. amplían la demanda doméstica de aceites vegetales.',
+          'Debilidad proyectada del dólar ante recortes de la Fed encarece importaciones mundiales y apoya precios en USD.'],
+    bear:['Producción récord estimada en Brasil: 169 MT proyectadas para 24/25 (+3% interanual), presión estacional sobre precios Feb–Mayo.',
+          'Incertidumbre arancelaria EE.UU.–China: posibles restricciones a importaciones de soja americana elevan la prima de riesgo comercial.',
+          'Stocks elevados en China: reservas estratégicas de aceite vegetal cercanas a máximos históricos reducen urgencia compradora.',
+          'Competencia del aceite de palma: precios bajos de Indonesia/Malasia presionan a la baja los aceites derivados de la soja.',
+          'Posible apreciación del real brasileño estimularía ventas anticipadas de productores, generando ola de oferta global.'],
+    risks:[
+      {lbl:'Clima La Niña Arg/Brasil',pct:65,color:YELLOW,lvl:'Medio–Alto'},
+      {lbl:'Aranceles China–EE.UU.',pct:78,color:RED,lvl:'Alto'},
+      {lbl:'Tipo de cambio Brasil',pct:50,color:BLUE,lvl:'Medio'},
+      {lbl:'Demanda biodiesel UE',pct:40,color:TEAL,lvl:'Bajo–Medio'},
+      {lbl:'Logística Argentina',pct:55,color:YELLOW,lvl:'Medio'},
+    ],
+    geoRisks:[
+      {lbl:'Tensión comercial EE.UU.–China',pct:78,color:RED},
+      {lbl:'Elecciones clave países emergentes',pct:55,color:YELLOW},
+      {lbl:'Guerra Ucrania (impacto girasol)',pct:62,color:YELLOW},
+      {lbl:'Restricciones exportación India',pct:40,color:BLUE},
+    ],
+    usaData:{prod:'124,9',area:'83,1 M acres',yield:'51,7 bu/ac',ratio:'7,1%'},
+  },
+  trigo:{
+    name:'Trigo',
+    kpis:[
+      {lbl:'Precio spot CME',val:'198,5',unit:'USD/Tn',chg:'−0,5%',up:false},
+      {lbl:'Precio spot ARG (A3)',val:'210,0',unit:'USD/Tn',chg:'+0,3%',up:true},
+      {lbl:'Producción mundial',val:'795,4',unit:'Mill. Tn',chg:'−1,8% YoY',up:false},
+      {lbl:'Stocks finales',val:'258,3',unit:'Mill. Tn',chg:'−1,2% vs ant.',up:false},
+    ],
+    wasde:{prod:'795,4',cons:'802,1',exp:'212,5',stk:'258,3',prodChg:'−1,8',consChg:'+0,5',expChg:'−2,3',stkChg:'−1,2',
+      countries:[
+        {n:'China',prod:'140,3',cons:'155,0',exp:'1,2',imp:'11,5',stk:'132,5',chg:'−0,5'},
+        {n:'UE',prod:'125,8',cons:'118,5',exp:'32,5',imp:'2,0',stk:'10,2',chg:'−3,2'},
+        {n:'India',prod:'113,5',cons:'107,0',exp:'3,0',imp:'0,5',stk:'8,4',chg:'+1,5'},
+        {n:'Rusia',prod:'82,5',cons:'45,0',exp:'44,0',imp:'0',stk:'12,2',chg:'−5,8'},
+        {n:'EE.UU.',prod:'51,7',cons:'30,5',exp:'19,0',imp:'0,5',stk:'5,1',chg:'+4,2'},
+        {n:'Argentina',prod:'18,5',cons:'6,5',exp:'10,5',imp:'0',stk:'1,5',chg:'+5,7'},
+        {n:'Ucrania',prod:'23,4',cons:'8,5',exp:'15,0',imp:'0',stk:'2,1',chg:'+2,1'},
+        {n:'Australia',prod:'31,8',cons:'11,0',exp:'20,0',imp:'0',stk:'3,8',chg:'+18,5'},
+      ]
+    },
+    cmePos:[
+      {nm:'MAR 2025',p:'198,5',chg:'−0,5%',hi:'212,0',lo:'185,3',up:false},
+      {nm:'MAY 2025',p:'201,2',chg:'+0,2%',hi:'214,5',lo:'188,0',up:true},
+      {nm:'JUL 2025',p:'204,8',chg:'+0,4%',hi:'218,0',lo:'192,2',up:true},
+      {nm:'SEP 2025',p:'207,3',chg:'+0,3%',hi:'220,5',lo:'194,0',up:true},
+      {nm:'DIC 2025',p:'211,0',chg:'+0,6%',hi:'224,0',lo:'198,5',up:true},
+    ],
+    argPos:[
+      {nm:'DISPONIBLE',p:'210,0',chg:'+0,3%',hi:'218,5',lo:'202,0',up:true},
+      {nm:'ENE 2025',p:'208,5',chg:'+0,2%',hi:'216,0',lo:'200,0',up:true},
+      {nm:'FEB 2025',p:'207,0',chg:'−0,1%',hi:'215,5',lo:'198,5',up:false},
+      {nm:'MAR 2025',p:'209,5',chg:'+0,4%',hi:'218,0',lo:'201,0',up:true},
+    ],
+    funds:{spec:'−12.500',idx:'+62.000',hdg:'−48.200'},
+    fundSeries:[15,8,-5,-12,-18,-10,5,12,8,-5,-12,-8,-12],
+    stocks:[258.3,272.1,268.4,255.8,261.2,269.5,258.3],
+    stockRatio:'34,2%',stockYoY:'−1,2 MT',
+    ph:genPriceHist(198,0.012,1825),pa:genPriceHist(210,0.010,1825),
+    season:[1.5,0.8,-0.5,-1.2,-2.1,-1.8,2.5,3.2,1.8,0.5,-0.8,1.2],
+    bull:['Producción Rusia 24/25 en mínimos de 5 años (82,5 MT) por heladas tardías y sequía primaveral, reduciendo oferta global del principal exportador.',
+          'UE con perspectiva negativa para cosecha 25/26 por exceso de lluvias en Francia y Alemania durante siembra otoñal.',
+          'Demanda fuerte de MENA: compras anticipadas de Egipto, Turquía y Arabia Saudita por riesgos geopolíticos regionales.',
+          'Restricciones logísticas Mar Negro: seguro de guerra y fletes elevados encarecen exportaciones de Rusia y Ucrania.',
+          'Dólar en tendencia bajista favorece competitividad de trigos americanos y sudamericanos frente a Black Sea.'],
+    bear:['Cosecha Australia 24/25 récord de 31,8 MT (+18,5% interanual) presiona precios en el Pacífico y compite con EE.UU.',
+          'Stocks mundiales en 258 MT representan ratio 34,2% del consumo, nivel holgado que amortigua shocks de oferta moderados.',
+          'India con buen remanente de stocks (8,4 MT) podría habilitar exportaciones si el gobierno levanta las restricciones actuales.',
+          'El trigo ruso mantiene competitividad a pesar de la guerra: exportaciones proyectadas en 44 MT presionan precios en Egipto.',
+          'Sustitución por maíz en alimentación animal en China y UE ante diferencial de precios favorable al maíz durante 2024.'],
+    risks:[
+      {lbl:'Sequía Mar Negro',pct:55,color:YELLOW,lvl:'Medio'},
+      {lbl:'Política exportación India',pct:62,color:RED,lvl:'Alto'},
+      {lbl:'Exceso oferta Australia',pct:70,color:RED,lvl:'Alto–Bajista'},
+      {lbl:'Demanda MENA',pct:48,color:BLUE,lvl:'Medio'},
+      {lbl:'Logística Rusia–Ucrania',pct:65,color:YELLOW,lvl:'Medio–Alto'},
+    ],
+    geoRisks:[
+      {lbl:'Conflicto Rusia–Ucrania',pct:85,color:RED},
+      {lbl:'Inestabilidad MENA',pct:65,color:YELLOW},
+      {lbl:'Política exportación India',pct:60,color:YELLOW},
+      {lbl:'Lluvias excesivas UE siembra',pct:50,color:BLUE},
+    ],
+    usaData:{prod:'51,7',area:'47,4 M acres',yield:'50,9 bu/ac',ratio:'35,2%'},
+  },
+  maiz:{
+    name:'Maíz',
+    kpis:[
+      {lbl:'Precio spot CME',val:'175,1',unit:'USD/Tn',chg:'+0,7%',up:true},
+      {lbl:'Precio spot ARG (A3)',val:'165,0',unit:'USD/Tn',chg:'+1,1%',up:true},
+      {lbl:'Producción mundial',val:'1.226,7',unit:'Mill. Tn',chg:'+4,5% YoY',up:true},
+      {lbl:'Stocks finales',val:'318,5',unit:'Mill. Tn',chg:'+2,1% vs ant.',up:true},
+    ],
+    wasde:{prod:'1.226,7',cons:'1.198,4',exp:'196,8',stk:'318,5',prodChg:'+4,5',consChg:'+1,2',expChg:'+2,8',stkChg:'+2,1',
+      countries:[
+        {n:'EE.UU.',prod:'389,7',cons:'326,8',exp:'63,5',imp:'0',stk:'52,7',chg:'+8,2'},
+        {n:'China',prod:'294,9',cons:'308,5',exp:'1,0',imp:'23,5',stk:'196,7',chg:'+3,5'},
+        {n:'Brasil',prod:'127,0',cons:'83,0',exp:'48,0',imp:'0',stk:'8,5',chg:'+5,0'},
+        {n:'UE',prod:'62,5',cons:'74,2',exp:'3,5',imp:'14,8',stk:'5,2',chg:'−2,1'},
+        {n:'Argentina',prod:'50,0',cons:'8,5',exp:'38,0',imp:'0',stk:'2,8',chg:'+8,7'},
+        {n:'Ucrania',prod:'28,5',cons:'5,8',exp:'24,0',imp:'0',stk:'1,5',chg:'+3,2'},
+        {n:'México',prod:'27,8',cons:'44,5',exp:'0,5',imp:'18,2',stk:'3,4',chg:'+1,8'},
+      ]
+    },
+    cmePos:[
+      {nm:'MAR 2025',p:'175,1',chg:'+0,7%',hi:'185,2',lo:'162,4',up:true},
+      {nm:'MAY 2025',p:'177,5',chg:'+0,5%',hi:'187,8',lo:'164,8',up:true},
+      {nm:'JUL 2025',p:'179,2',chg:'+0,4%',hi:'189,5',lo:'166,2',up:true},
+      {nm:'SEP 2025',p:'175,8',chg:'+0,3%',hi:'185,5',lo:'162,8',up:true},
+      {nm:'DIC 2025',p:'178,4',chg:'+0,5%',hi:'188,2',lo:'165,4',up:true},
+      {nm:'MAR 2026',p:'181,0',chg:'+0,4%',hi:'191,0',lo:'168,0',up:true},
+    ],
+    argPos:[
+      {nm:'DISPONIBLE',p:'165,0',chg:'+1,1%',hi:'172,5',lo:'158,0',up:true},
+      {nm:'ENE 2025',p:'163,5',chg:'+0,8%',hi:'171,0',lo:'156,5',up:true},
+      {nm:'FEB 2025',p:'162,0',chg:'+0,5%',hi:'169,5',lo:'155,0',up:true},
+      {nm:'ABR 2025',p:'166,5',chg:'+1,2%',hi:'174,0',lo:'159,5',up:true},
+      {nm:'JUN 2025',p:'168,0',chg:'+0,9%',hi:'175,5',lo:'161,0',up:true},
+    ],
+    funds:{spec:'+32.800',idx:'+75.000',hdg:'−108.500'},
+    fundSeries:[10,20,35,28,15,5,20,32,25,12,28,35,32],
+    stocks:[318.5,302.4,295.8,310.2,325.8,312.4,318.5],
+    stockRatio:'27,5%',stockYoY:'+2,1 MT',
+    ph:genPriceHist(175,0.014,1825),pa:genPriceHist(165,0.011,1825),
+    season:[-0.8,-1.5,0.5,1.8,2.5,2.8,0.8,-1.2,-2.5,-1.8,0.5,1.5],
+    bull:['Demanda de etanol EE.UU. en máximos históricos: el blending mandate y exportaciones de etanol reducen stocks disponibles para exportación.',
+          'China mantiene déficit estructural: el 14º plan quinquenal eleva el consumo animal más rápido que la producción doméstica.',
+          'Producción récord EE.UU. ya reflejada en precios: el spread Nov 25 vs contado sugiere que el mercado no aplica descuento adicional.',
+          'Argentina con cosecha de 50 MT solo posible con lluvias favorables en enero–febrero; riesgo climático persistente en Sudamérica.',
+          'Biocombustibles SAF (Sustainable Aviation Fuel): nueva demanda de etanol de maíz para aviación en expansión en EE.UU. y UE.'],
+    bear:['Stocks mundiales 318,5 MT con ratio 27,5% del consumo: nivel amplio vs. histórico, sin presión estructural alcista en fundamentos.',
+          'Producción EE.UU. récord: 389,7 MT en 24/25 aumentan la oferta americana y presionan precios de exportación.',
+          'China importa menos: 23,5 MT en 24/25 vs. 28,7 MT en 2022/23; tendencia bajista por expansión de producción interna.',
+          'Brasil con dos cosechas robustas proyectadas: safra y safrinha 2025 apuntan a 127 MT, competencia directa con EE.UU.',
+          'Sustitución por trigo y sorgo en alimentación animal a nivel global cuando el spread de precios es favorable.'],
+    risks:[
+      {lbl:'Clima SA ene–feb 2025',pct:60,color:YELLOW,lvl:'Medio–Alto'},
+      {lbl:'Política importación China',pct:72,color:RED,lvl:'Alto'},
+      {lbl:'Mandato etanol EE.UU.',pct:35,color:TEAL,lvl:'Bajo'},
+      {lbl:'Producción Brasil safrinha',pct:55,color:YELLOW,lvl:'Medio'},
+      {lbl:'Paridad exportación Argentina',pct:62,color:RED,lvl:'Alto'},
+    ],
+    geoRisks:[
+      {lbl:'Aranceles maíz México/China',pct:70,color:RED},
+      {lbl:'Conflicto Ucrania',pct:62,color:YELLOW},
+      {lbl:'Política biocombustibles UE',pct:45,color:BLUE},
+      {lbl:'Sequía SA 2025',pct:58,color:YELLOW},
+    ],
+    usaData:{prod:'389,7',area:'94,9 M acres',yield:'183,8 bu/ac',ratio:'14,8%'},
+  },
+  cebada:{
+    name:'Cebada',
+    kpis:[
+      {lbl:'Precio ref. (ARG A3)',val:'195,0',unit:'USD/Tn',chg:'+0,6%',up:true},
+      {lbl:'Referencia internacional',val:'182,4',unit:'USD/Tn',chg:'−0,3%',up:false},
+      {lbl:'Producción mundial',val:'155,8',unit:'Mill. Tn',chg:'−0,8% YoY',up:false},
+      {lbl:'Stocks finales',val:'22,4',unit:'Mill. Tn',chg:'−1,2% vs ant.',up:false},
+    ],
+    wasde:{prod:'155,8',cons:'157,2',exp:'38,5',stk:'22,4',prodChg:'−0,8',consChg:'+0,3',expChg:'−1,5',stkChg:'−1,2',
+      countries:[
+        {n:'UE',prod:'45,8',cons:'48,2',exp:'8,5',imp:'2,8',stk:'4,2',chg:'−2,5'},
+        {n:'Australia',prod:'23,5',cons:'5,8',exp:'17,5',imp:'0',stk:'3,2',chg:'+15,0'},
+        {n:'Rusia',prod:'18,2',cons:'14,0',exp:'4,8',imp:'0',stk:'2,1',chg:'−3,5'},
+        {n:'Ucrania',prod:'8,5',cons:'3,2',exp:'5,0',imp:'0',stk:'0,8',chg:'−5,0'},
+        {n:'Argentina',prod:'6,5',cons:'2,8',exp:'3,5',imp:'0',stk:'0,6',chg:'+8,3'},
+        {n:'China',prod:'7,5',cons:'18,5',exp:'0',imp:'8,3',stk:'2,5',chg:'+2,7'},
+      ]
+    },
+    cmePos:[
+      {nm:'MAR 2025',p:'182,4',chg:'−0,3%',hi:'195,0',lo:'170,2',up:false},
+      {nm:'MAY 2025',p:'185,0',chg:'+0,2%',hi:'197,5',lo:'172,8',up:true},
+      {nm:'JUL 2025',p:'187,5',chg:'+0,3%',hi:'200,0',lo:'175,0',up:true},
+    ],
+    argPos:[
+      {nm:'DISPONIBLE',p:'195,0',chg:'+0,6%',hi:'202,0',lo:'188,0',up:true},
+      {nm:'ENE 2025',p:'192,5',chg:'+0,4%',hi:'199,5',lo:'185,5',up:true},
+      {nm:'FEB 2025',p:'190,0',chg:'+0,2%',hi:'197,0',lo:'183,0',up:true},
+    ],
+    funds:{spec:'−8.400',idx:'+42.000',hdg:'−35.200'},
+    fundSeries:[5,-2,-8,-5,2,8,5,-4,-8,-5,0,3,-8],
+    stocks:[22.4,24.1,23.5,21.8,22.9,23.8,22.4],
+    stockRatio:'14,3%',stockYoY:'−1,2 MT',
+    ph:genPriceHist(182,0.010,1825),pa:genPriceHist(195,0.009,1825),
+    season:[0.5,0.2,-0.8,-1.5,-1.0,0.8,2.2,3.0,1.5,0.2,-0.5,0.4],
+    bull:['Demanda creciente de malta y cerveza en mercados emergentes de Asia–Pacífico, con China e India impulsando el consumo de cebada cervecera.',
+          'Cosecha Australia 23,5 MT ya comprometida; menor disponibilidad en campañas futuras si hay normalización climática.',
+          'Rusia y Ucrania con producción a la baja por guerra y clima adverso, reduciendo competencia en exportaciones hacia MENA.',
+          'Argentina con cosecha 6,5 MT récord; alta calidad malteable con demanda premium de cerveceras europeas y brasileñas.',
+          'Prima de calidad sobre trigo forrajero: brecha positiva por oferta limitada de cebada cervecera de alta calidad.'],
+    bear:['Stocks globales de 22,4 MT ajustados pero ratio 14,3% moderado; sin urgencia compradora fuera de temporada cervecera.',
+          'Sustitución por trigo y maíz en alimentación animal cuando el spread de precios es favorable.',
+          'UE con producción estable y alto autoabastecimiento limita las importaciones del principal mercado.',
+          'Baja liquidez: mercado poco profundo con spread bid-ask amplio y volatilidad elevada sin respaldo de volumen.',
+          'Cosecha récord Australia 24/25 presiona precios de exportación en el Pacífico y compite con Argentina en Asia.'],
+    risks:[
+      {lbl:'Demanda cervecera Asia',pct:48,color:TEAL,lvl:'Medio'},
+      {lbl:'Clima Rusia próx. campaña',pct:55,color:YELLOW,lvl:'Medio'},
+      {lbl:'Sustitución forrajera',pct:42,color:BLUE,lvl:'Bajo–Medio'},
+      {lbl:'Logística Argentina',pct:50,color:YELLOW,lvl:'Medio'},
+    ],
+    geoRisks:[
+      {lbl:'Conflicto Ucrania/Rusia',pct:78,color:RED},
+      {lbl:'Aranceles China–Australia',pct:30,color:BLUE},
+      {lbl:'Política agrícola UE',pct:42,color:BLUE},
+    ],
+    usaData:{prod:'—',area:'—',yield:'—',ratio:'—'},
+  },
+  girasol:{
+    name:'Girasol',
+    kpis:[
+      {lbl:'Precio spot ARG (A3)',val:'310,5',unit:'USD/Tn',chg:'+0,9%',up:true},
+      {lbl:'Referencia Ucrania',val:'385,0',unit:'USD/Tn',chg:'−0,4%',up:false},
+      {lbl:'Producción mundial',val:'55,8',unit:'Mill. Tn',chg:'+2,1% YoY',up:true},
+      {lbl:'Aceite girasol ARG',val:'985,0',unit:'USD/Tn',chg:'+1,2%',up:true},
+    ],
+    wasde:{prod:'55,8',cons:'54,2',exp:'4,8',stk:'2,8',prodChg:'+2,1',consChg:'+1,5',expChg:'+3,0',stkChg:'+1,8',
+      countries:[
+        {n:'Ucrania',prod:'14,5',cons:'5,8',exp:'2,5',imp:'0',stk:'0,5',chg:'+5,5'},
+        {n:'Rusia',prod:'17,2',cons:'13,5',exp:'0,8',imp:'0',stk:'0,8',chg:'+3,2'},
+        {n:'Argentina',prod:'3,9',cons:'3,2',exp:'0,4',imp:'0',stk:'0,3',chg:'+8,3'},
+        {n:'UE',prod:'9,8',cons:'9,2',exp:'0,8',imp:'0,5',stk:'0,4',chg:'−1,5'},
+        {n:'Kazajistán',prod:'3,5',cons:'2,2',exp:'0,2',imp:'0',stk:'0,2',chg:'+5,0'},
+        {n:'China',prod:'2,9',cons:'3,8',exp:'0',imp:'1,0',stk:'0,3',chg:'+2,1'},
+      ]
+    },
+    cmePos:[
+      {nm:'DISPONIBLE',p:'310,5',chg:'+0,9%',hi:'325,0',lo:'298,0',up:true},
+      {nm:'ENE 2025',p:'308,0',chg:'+0,5%',hi:'322,5',lo:'295,5',up:true},
+      {nm:'FEB 2025',p:'305,5',chg:'+0,3%',hi:'320,0',lo:'293,0',up:true},
+      {nm:'MAR 2025',p:'312,0',chg:'+0,7%',hi:'326,5',lo:'299,5',up:true},
+    ],
+    argPos:[
+      {nm:'DISPONIBLE',p:'310,5',chg:'+0,9%',hi:'325,0',lo:'298,0',up:true},
+      {nm:'ENE 2025',p:'308,0',chg:'+0,5%',hi:'322,5',lo:'295,5',up:true},
+      {nm:'FEB 2025',p:'305,5',chg:'+0,3%',hi:'320,0',lo:'293,0',up:true},
+      {nm:'MAR 2025',p:'312,0',chg:'+0,7%',hi:'326,5',lo:'299,5',up:true},
+      {nm:'ABR 2025',p:'315,5',chg:'+0,8%',hi:'330,0',lo:'303,0',up:true},
+    ],
+    funds:{spec:'+12.000',idx:'+28.500',hdg:'−40.200'},
+    fundSeries:[8,12,5,10,12,8,2,8,12,8,5,10,12],
+    stocks:[2.8,2.5,2.2,2.4,2.6,2.9,2.8],
+    stockRatio:'5,2%',stockYoY:'+2,1 MT prod.',
+    ph:genPriceHist(310,0.013,1825),pa:genPriceHist(310,0.013,1825),
+    season:[3.2,2.5,1.2,-0.5,-1.8,-2.2,-1.5,0.8,2.5,3.8,2.1,3.5],
+    bull:['Conflicto Rusia–Ucrania mantiene prima de riesgo sobre el aceite de girasol ucraniano, principal aceite vegetal de exportación mundial.',
+          'Mandatos biocombustibles UE (B10 y SAF) incrementan la demanda de aceites vegetales incluyendo girasol para biodiesel y oleoquímica.',
+          'Producción Argentina récord de 3,9 MT con aceite competitivo y demanda sostenida desde India, China y Medio Oriente.',
+          'Precio competitivo vs. aceite de palma abre ventana de demanda en Sudeste Asiático como sustituto.',
+          'Récord de crushing en Argentina: inversión en capacidad industrial aumenta el valor agregado y los premios diferenciados.'],
+    bear:['Stocks mundiales extremadamente ajustados (2,8 MT, ratio 5,2%), pero cualquier normalización de la producción ucraniana presiona.',
+          'Competencia aceite de palma: Indonesia y Malasia con producción récord mantienen precios deprimidos del aceite de palma.',
+          'Sustitución por aceite de canola en mercados europeos donde los mandatos bio tienen mayor flexibilidad de materia prima.',
+          'Devaluación potencial del hryvnia ucraniano incentiva la exportación masiva y presiona los precios globales de referencia.',
+          'Baja liquidez y poca profundidad del mercado amplifica movimientos de precio en ambas direcciones con bajo volumen.'],
+    risks:[
+      {lbl:'Producción Ucrania 25',pct:62,color:YELLOW,lvl:'Medio–Alto'},
+      {lbl:'Mandatos bio UE 2030',pct:42,color:TEAL,lvl:'Bajo–Medio'},
+      {lbl:'Precio aceite de palma',pct:68,color:RED,lvl:'Alto'},
+      {lbl:'Tipo de cambio Argentina',pct:55,color:YELLOW,lvl:'Medio'},
+    ],
+    geoRisks:[
+      {lbl:'Conflicto Rusia–Ucrania',pct:88,color:RED},
+      {lbl:'Restricciones exportación Rusia',pct:70,color:RED},
+      {lbl:'Mandatos biocombustibles UE',pct:45,color:BLUE},
+      {lbl:'Cosecha UE 25/26',pct:40,color:BLUE},
+    ],
+    usaData:{prod:'—',area:'—',yield:'—',ratio:'—'},
+  },
+};
+
+// ══════════════════════════════════════════
+// CHART OPTIONS
+// ══════════════════════════════════════════
 function baseOpts(extra={}) {
   return {
     responsive:true,
@@ -998,14 +1742,587 @@ function showTab(id, el) {
   renderTab(id);
 }
 
+function selectGrain(g, btn) {
+  currentGrain = g;
+  document.querySelectorAll('.grain-pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['ov','stocks','wasde','funds','sig'].forEach(id=>{
+    const el = document.getElementById('gname-'+id);
+    if(el) el.textContent = DB[g].name;
+  });
+  destroyAll();
+  renderTab(document.querySelector('.main.active').id.replace('tab-',''));
+}
+
 function renderTab(id) {
   switch(id) {
+    case 'overview': renderOverview(); break;
+    case 'prices': renderPrices(); break;
+    case 'stocks': renderStocks(); break;
+    case 'wasde': renderWasde(); break;
+    case 'usa-crops': renderUSA(); break;
+    case 'china': renderChina(); break;
+    case 'funds': renderFunds(); break;
+    case 'fob': renderFOB(); break;
+    case 'countries': renderCountries(); break;
+    case 'macro': renderMacro(); break;
+    case 'signals': renderSignals(); break;
+    case 'update': renderUpdate(); break;
     case 'live': renderLiveTab(); break;
   }
 }
 
 // ══════════════════════════════════════════
 // OVERVIEW
+// ══════════════════════════════════════════
+function renderOverview() {
+  const g = DB[currentGrain];
+  const colors = ['','yellow-top','blue-top','red-top'];
+  document.getElementById('kpi-row').innerHTML = g.kpis.map((k,i)=>`
+    <div class="kpi ${colors[i]}">
+      <div class="kpi-label">${k.lbl}</div>
+      <div class="kpi-val ${k.up?'up':'dn'}">${k.val}</div>
+      <div class="kpi-chg ${k.up?'up':'dn'}">${k.up?'▲':'▼'} ${k.chg}</div>
+      <div class="kpi-sub">${k.unit}</div>
+    </div>`).join('');
+
+  // Price chart
+  const days = ovPeriod;
+  const labels = genDates(days);
+  const ph = g.ph.slice(-days), pa = g.pa.slice(-days);
+  const avg = ph.reduce((a,b)=>a+b,0)/ph.length;
+  if(charts['ov-price']) charts['ov-price'].destroy();
+  const ctx = document.getElementById('ov-price').getContext('2d');
+  charts['ov-price'] = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:'CME Chicago', data:ph, borderColor:TEAL, backgroundColor:TEAL+'20', fill:true, borderWidth:2, pointRadius:0, tension:0.3},
+        {label:'Argentina A3', data:pa, borderColor:BLUE, backgroundColor:'transparent', borderWidth:1.5, borderDash:[5,3], pointRadius:0, fill:false, tension:0.3},
+        {label:'Promedio período', data:labels.map(()=>avg), borderColor:'#9b2226', backgroundColor:'transparent', borderWidth:1.5, borderDash:[3,3], pointRadius:0, fill:false},
+      ]
+    },
+    options:baseOpts()
+  });
+
+  // Risks
+  document.getElementById('risk-factors').innerHTML = g.risks.map(r=>`
+    <div class="risk-row">
+      <span class="risk-name">${r.lbl}</span>
+      <div class="risk-track"><div class="risk-fill" style="width:${r.pct}%;background:${r.color}"></div></div>
+      <span class="risk-val" style="color:${r.color}">${r.lvl}</span>
+    </div>`).join('');
+
+  // Geo risks
+  document.getElementById('geo-risks').innerHTML = g.geoRisks.map(r=>`
+    <div class="risk-row">
+      <span class="risk-name">${r.lbl}</span>
+      <div class="risk-track"><div class="risk-fill" style="width:${r.pct}%;background:${r.color}"></div></div>
+      <span class="risk-val" style="color:${r.color}">${r.pct}%</span>
+    </div>`).join('');
+
+  // Seasonality
+  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  document.getElementById('season-grid').innerHTML = g.season.map((v,i)=>{
+    const pos = v>=0; const h = Math.max(4, Math.abs(v)*10);
+    const color = pos ? TEAL : RED;
+    return `<div class="season-col">
+      <div class="season-lbl">${months[i]}</div>
+      <div class="season-bar ${!pos?'season-neg':''}">
+        <div class="season-fill" style="height:${h}px;background:${color};opacity:0.85"></div>
+      </div>
+      <div class="season-pct" style="color:${color}">${v>0?'+':''}${v}%</div>
+    </div>`;
+  }).join('');
+}
+
+function setOvPeriod(d, btn) {
+  ovPeriod = d;
+  document.querySelectorAll('#tab-overview .period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderOverview();
+}
+
+// ══════════════════════════════════════════
+// PRICES
+// ══════════════════════════════════════════
+function renderPrices() {
+  const g = DB[currentGrain];
+  const days = pricePeriod;
+  const labels = genDates(days);
+  const ph = g.ph.slice(-days), pa = g.pa.slice(-days);
+  const avg = ph.reduce((a,b)=>a+b,0)/ph.length;
+
+  // Position selector
+  const opts = [...g.cmePos.map(p=>`<option>CME: ${p.nm} — ${p.p} USD/Tn</option>`),
+                ...g.argPos.map(p=>`<option>ARG: ${p.nm} — ${p.p} USD/Tn</option>`)];
+  document.getElementById('pos-sel').innerHTML = opts.join('');
+
+  if(charts['price-main']) charts['price-main'].destroy();
+  charts['price-main'] = new Chart(document.getElementById('price-main').getContext('2d'), {
+    type:'line',
+    data:{labels,datasets:[
+      {label:'CME Chicago',data:ph,borderColor:TEAL,backgroundColor:TEAL+'15',fill:true,borderWidth:2,pointRadius:0,tension:0.3},
+      {label:'Argentina A3',data:pa,borderColor:BLUE,backgroundColor:'transparent',borderWidth:1.5,borderDash:[5,3],pointRadius:0,fill:false,tension:0.3},
+      {label:'Promedio CME',data:labels.map(()=>avg),borderColor:'#9b2226',backgroundColor:'transparent',borderWidth:1,borderDash:[3,3],pointRadius:0,fill:false},
+    ]},
+    options:baseOpts()
+  });
+
+  // Tables
+  document.getElementById('cme-tbody').innerHTML = g.cmePos.map(p=>`
+    <tr>
+      <td><b>${p.nm}</b></td>
+      <td class="val">${p.p}</td>
+      <td style="color:${p.up?TEAL:RED};font-weight:600">${p.up?'▲':'▼'} ${p.chg}</td>
+      <td>${p.hi}</td><td>${p.lo}</td>
+    </tr>`).join('');
+  document.getElementById('arg-tbody').innerHTML = g.argPos.map(p=>`
+    <tr>
+      <td><b>${p.nm}</b></td>
+      <td class="val" style="color:${BLUE}">${p.p}</td>
+      <td style="color:${p.up?TEAL:RED};font-weight:600">${p.up?'▲':'▼'} ${p.chg}</td>
+      <td>${p.hi}</td><td>${p.lo}</td>
+    </tr>`).join('');
+}
+
+function setPricePeriod(d, btn) {
+  pricePeriod = d;
+  document.querySelectorAll('#tab-prices .period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPrices();
+}
+
+function refreshPriceChart() { renderPrices(); }
+
+// ══════════════════════════════════════════
+// STOCKS
+// ══════════════════════════════════════════
+function renderStocks() {
+  const g = DB[currentGrain];
+  document.getElementById('st-val').textContent = g.stocks[g.stocks.length-1]+' MT';
+  document.getElementById('st-ratio').textContent = g.stockRatio;
+  document.getElementById('st-yoy').textContent = g.stockYoY;
+
+  const camp = ['18/19','19/20','20/21','21/22','22/23','23/24','24/25E'];
+  if(charts['world-stocks']) charts['world-stocks'].destroy();
+  charts['world-stocks'] = new Chart(document.getElementById('world-stocks').getContext('2d'), {
+    type:'bar',
+    data:{labels:camp,datasets:[{
+      label:'Stocks finales (MT)',data:g.stocks,
+      backgroundColor:TEAL+'99',borderColor:TEAL,borderWidth:1,borderRadius:3,
+    }]},
+    options:{...baseOpts(),plugins:{...baseOpts().plugins,legend:{display:false}}}
+  });
+
+  const countries = g.wasde.countries;
+  if(charts['country-stocks']) charts['country-stocks'].destroy();
+  const colors = [TEAL,BLUE,YELLOW,RED,PURPLE,ORANGE,'#059669'];
+  charts['country-stocks'] = new Chart(document.getElementById('country-stocks').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels:countries.map(c=>c.n),
+      datasets:[{
+        label:'Stocks finales 24/25 (MT)',
+        data:countries.map(c=>parseFloat(c.stk.replace(',','.'))),
+        backgroundColor:colors.map(c=>c+'bb'),borderColor:colors,borderWidth:1,borderRadius:3,
+      }]
+    },
+    options:{...baseOpts(),plugins:{...baseOpts().plugins,legend:{display:false}}}
+  });
+}
+
+function setStockView(v,btn) {
+  document.querySelectorAll('#tab-stocks .period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderStocks();
+}
+
+// ══════════════════════════════════════════
+// WASDE
+// ══════════════════════════════════════════
+function renderWasde() {
+  const g = DB[currentGrain], w = g.wasde;
+  document.getElementById('w-prod').textContent = w.prod+' MT';
+  document.getElementById('w-cons').textContent = w.cons+' MT';
+  document.getElementById('w-exp').textContent = w.exp+' MT';
+  document.getElementById('w-stocks').textContent = w.stk+' MT';
+  ['prod','cons','exp','stk'].forEach(k=>{
+    const chgKey = k==='stk'?'stkChg':k+'Chg';
+    const elId = k==='stk'?'w-stk-chg':'w-'+k+'-chg';
+    const el = document.getElementById(elId);
+    if(el) el.textContent = 'vs mes ant.: '+w[chgKey]+'%';
+  });
+
+  // Table
+  document.getElementById('wasde-table').innerHTML = `
+    <thead><tr>
+      <th>País</th><th>Producción (MT)</th><th>Δ mes ant.</th>
+      <th>Consumo (MT)</th><th>Exportaciones (MT)</th><th>Importaciones (MT)</th>
+      <th>Stocks finales (MT)</th><th>Δ año ant.</th>
+    </tr></thead>
+    <tbody>
+      ${w.countries.map(c=>{
+        const chg = parseFloat(c.chg.replace(',','.'));
+        return `<tr>
+          <td>${c.n}</td><td>${c.prod}</td>
+          <td style="color:${chg>=0?TEAL:RED};font-weight:600">${c.chg}%</td>
+          <td>${c.cons}</td><td>${c.exp}</td><td>${c.imp}</td><td>${c.stk}</td>
+          <td style="color:var(--text4)">—</td>
+        </tr>`;
+      }).join('')}
+      <tr class="total-row">
+        <td>TOTAL MUNDIAL</td><td>${w.prod}</td>
+        <td>${w.prodChg}%</td><td>${w.cons}</td><td>${w.exp}</td><td>—</td><td>${w.stk}</td><td>—</td>
+      </tr>
+    </tbody>`;
+
+  // Charts
+  const ctries = w.countries.map(c=>c.n);
+  const colors = [TEAL,BLUE,YELLOW,RED,PURPLE,ORANGE,'#059669'];
+  if(charts['wasde-stk']) charts['wasde-stk'].destroy();
+  charts['wasde-stk'] = new Chart(document.getElementById('wasde-stk-chart').getContext('2d'), {
+    type:'doughnut',
+    data:{labels:ctries,datasets:[{
+      data:w.countries.map(c=>parseFloat(c.stk.replace(',','.'))),
+      backgroundColor:colors.map(c=>c+'cc'),borderColor:'#fff',borderWidth:2,
+    }]},
+    options:{...baseOpts(),scales:{},plugins:{...baseOpts().plugins,legend:{position:'right',labels:{font:{size:10}}}}}
+  });
+
+  const camp = ['19/20','20/21','21/22','22/23','23/24','24/25E'];
+  const baseP = parseFloat(w.prod.replace('.','').replace(',','.'));
+  const baseC = parseFloat(w.cons.replace('.','').replace(',','.'));
+  if(charts['wasde-bal']) charts['wasde-bal'].destroy();
+  charts['wasde-bal'] = new Chart(document.getElementById('wasde-bal-chart').getContext('2d'), {
+    type:'bar',
+    data:{labels:camp,datasets:[
+      {label:'Producción',data:camp.map(()=>+(baseP*(0.9+Math.random()*0.2)).toFixed(1)),backgroundColor:TEAL+'88',borderColor:TEAL,borderWidth:1,borderRadius:2},
+      {label:'Consumo',data:camp.map(()=>+(baseC*(0.92+Math.random()*0.16)).toFixed(1)),backgroundColor:RED+'55',borderColor:RED,borderWidth:1,borderRadius:2},
+    ]},
+    options:baseOpts()
+  });
+}
+
+// ══════════════════════════════════════════
+// USA
+// ══════════════════════════════════════════
+function renderUSA() {
+  const g = DB[currentGrain], u = g.usaData;
+  document.getElementById('us-prod').textContent = u.prod;
+  document.getElementById('us-area').textContent = u.area;
+  document.getElementById('us-yield').textContent = u.yield;
+  document.getElementById('us-ratio').textContent = u.ratio;
+
+  const camp = ['19/20','20/21','21/22','22/23','23/24'];
+  const baseS = parseFloat(g.stocks[0])||20;
+  if(charts['us-stocks']) charts['us-stocks'].destroy();
+  charts['us-stocks'] = new Chart(document.getElementById('us-stocks-chart').getContext('2d'), {
+    type:'bar',
+    data:{labels:camp,datasets:[{
+      label:'Stocks finales EE.UU. (MT)',data:camp.map(()=>+(baseS*(0.7+Math.random()*0.6)).toFixed(1)),
+      backgroundColor:TEAL+'99',borderColor:TEAL,borderWidth:1,borderRadius:3,
+    }]},
+    options:{...baseOpts(),plugins:{...baseOpts().plugins,legend:{display:false}}}
+  });
+
+  if(charts['us-crush']) charts['us-crush'].destroy();
+  charts['us-crush'] = new Chart(document.getElementById('us-crush-chart').getContext('2d'), {
+    type:'line',
+    data:{labels:camp,datasets:[{
+      label:'Molienda EE.UU. (MT)',data:camp.map(()=>+(baseS*0.6*(0.9+Math.random()*0.2)).toFixed(1)),
+      borderColor:BLUE,backgroundColor:BLUE+'15',fill:true,tension:0.4,pointRadius:5,
+      pointBorderColor:BLUE,pointBackgroundColor:'#fff',borderWidth:2,
+    }]},
+    options:baseOpts()
+  });
+
+  const months = ['Sep','Oct','Nov','Dic','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago'];
+  if(charts['us-china']) charts['us-china'].destroy();
+  charts['us-china'] = new Chart(document.getElementById('us-china-chart').getContext('2d'), {
+    type:'bar',
+    data:{labels:months,datasets:[
+      {label:'Campaña 24/25',data:months.map(()=>+(Math.random()*2.5+0.5).toFixed(2)),backgroundColor:TEAL+'99',borderColor:TEAL,borderWidth:1,borderRadius:2},
+      {label:'Campaña 23/24',data:months.map(()=>+(Math.random()*2.5+0.5).toFixed(2)),backgroundColor:BLUE+'55',borderColor:BLUE,borderWidth:1,borderRadius:2},
+      {label:'Promedio 5 años',type:'line',data:months.map(()=>+(Math.random()*2.0+0.8).toFixed(2)),borderColor:RED,borderWidth:2,pointRadius:3,fill:false,borderDash:[4,3]},
+    ]},
+    options:baseOpts()
+  });
+}
+
+// ══════════════════════════════════════════
+// CHINA
+// ══════════════════════════════════════════
+function renderChina() {
+  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const m24 = [8.5,7.2,9.1,8.8,7.5,6.9,8.2,9.5,9.8,10.2,9.8,9.7];
+  const m23 = [7.8,6.9,8.5,8.1,7.2,6.5,7.8,8.9,9.2,9.5,9.1,9.2];
+  const acum = m24.map((_,i)=>+m24.slice(0,i+1).reduce((a,b)=>a+b,0).toFixed(1));
+
+  if(charts['china-monthly']) charts['china-monthly'].destroy();
+  charts['china-monthly'] = new Chart(document.getElementById('china-monthly').getContext('2d'), {
+    type:'bar',
+    data:{labels:months,datasets:[
+      {label:'2024 (MT)',data:m24,backgroundColor:TEAL+'88',borderColor:TEAL,borderWidth:1,borderRadius:2},
+      {label:'2023 (MT)',data:m23,backgroundColor:BLUE+'44',borderColor:BLUE,borderWidth:1,borderRadius:2},
+      {label:'Acumulado 2024 (MT)',type:'line',data:acum,borderColor:RED,backgroundColor:'transparent',borderWidth:2,pointRadius:3,fill:false,yAxisID:'y1'},
+    ]},
+    options:{...baseOpts(),scales:{
+      x:{grid:{color:'#f3f4f6'},ticks:{color:'#9ca3af'}},
+      y:{grid:{color:'#f3f4f6'},ticks:{color:'#9ca3af'}},
+      y1:{position:'right',grid:{display:false},ticks:{color:RED}},
+    }}
+  });
+
+  if(charts['china-by-grain']) charts['china-by-grain'].destroy();
+  charts['china-by-grain'] = new Chart(document.getElementById('china-by-grain').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels:['Soja','Maíz','Trigo','Cebada','Sorgo','Otros'],
+      datasets:[
+        {label:'2024',data:[105.2,23.5,12.7,8.3,5.8,3.2],backgroundColor:[TEAL,BLUE,YELLOW,PURPLE,ORANGE,'#059669'].map(c=>c+'99'),borderRadius:2},
+        {label:'2023',data:[99.4,28.7,12.1,7.4,5.2,2.9],backgroundColor:'#e5e7eb',borderRadius:2},
+      ]
+    },
+    options:baseOpts()
+  });
+
+  if(charts['china-origin']) charts['china-origin'].destroy();
+  charts['china-origin'] = new Chart(document.getElementById('china-origin').getContext('2d'), {
+    type:'doughnut',
+    data:{
+      labels:['Brasil','EE.UU.','Argentina','Paraguay','Uruguay','Otros'],
+      datasets:[{data:[52,24,14,5,3,2],backgroundColor:[TEAL,BLUE,YELLOW,PURPLE,ORANGE,GRAY].map(c=>c+'cc'),borderColor:'#fff',borderWidth:2}]
+    },
+    options:{...baseOpts(),scales:{},plugins:{...baseOpts().plugins,legend:{position:'right',labels:{font:{size:10}}}}}
+  });
+}
+
+// ══════════════════════════════════════════
+// FUNDS
+// ══════════════════════════════════════════
+function renderFunds() {
+  const g = DB[currentGrain];
+  document.getElementById('f-spec').textContent = g.funds.spec;
+  document.getElementById('f-idx').textContent = g.funds.idx;
+  document.getElementById('f-hdg').textContent = g.funds.hdg;
+
+  const weeks = Array.from({length:13},(_,i)=>`S−${12-i}`);
+  if(charts['funds-chart']) charts['funds-chart'].destroy();
+  charts['funds-chart'] = new Chart(document.getElementById('funds-chart').getContext('2d'), {
+    type:'line',
+    data:{labels:weeks,datasets:[
+      {label:'Especulativos',data:g.fundSeries.map(v=>v*1.2),borderColor:TEAL,backgroundColor:TEAL+'18',fill:true,tension:0.3,pointRadius:4,borderWidth:2},
+      {label:'Index',data:g.fundSeries.map(v=>v*0.8+30),borderColor:BLUE,fill:false,tension:0.3,pointRadius:3,borderWidth:1.5,borderDash:[4,3]},
+      {label:'Coberturas',data:g.fundSeries.map(v=>-v*2-20),borderColor:RED,fill:false,tension:0.3,pointRadius:3,borderWidth:1.5,borderDash:[2,4]},
+    ]},
+    options:baseOpts()
+  });
+
+  document.getElementById('funds-detail').innerHTML = [
+    {name:'Fondos especulativos',val:g.funds.spec,color:TEAL,dir:1},
+    {name:'Fondos index',val:g.funds.idx,color:BLUE,dir:1},
+    {name:'Coberturas comerciales',val:g.funds.hdg,color:RED,dir:-1},
+  ].map(f=>{
+    const raw = parseInt(f.val.replace(/[^0-9-]/g,'')) || 0;
+    const pct = Math.min(48, Math.abs(raw)/3000);
+    const leftSide = f.dir<0;
+    return `<div class="fund-row">
+      <span class="fund-name">${f.name}</span>
+      <div class="fund-track">
+        <div class="fund-center"></div>
+        <div class="fund-fill" style="${leftSide?'right:50%':'left:50%'};width:${pct}%;background:${f.color};border-radius:${leftSide?'4px 0 0 4px':'0 4px 4px 0'}"></div>
+      </div>
+      <span class="fund-val" style="color:${f.color}">${f.val}</span>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// FOB
+// ══════════════════════════════════════════
+function renderFOB() {
+  const grainNames = ['Soja','Trigo','Maíz','Cebada','Girasol'];
+  const ctries = ['Argentina','Brasil','EE.UU. Golfo','Ucrania','Australia'];
+  const fobVals = {
+    'Argentina':[340,210,165,195,310],'Brasil':[352,218,172,200,318],
+    'EE.UU. Golfo':[372,198,174,190,0],'Ucrania':[358,205,168,188,385],'Australia':[345,195,0,185,0],
+  };
+  const colors = [TEAL,BLUE,YELLOW,RED,'#059669'];
+
+  if(charts['fob-chart']) charts['fob-chart'].destroy();
+  charts['fob-chart'] = new Chart(document.getElementById('fob-chart').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels:grainNames,
+      datasets:ctries.map((c,i)=>{return {label:c,data:fobVals[c],backgroundColor:colors[i]+'88',borderColor:colors[i],borderWidth:1,borderRadius:2}})
+    },
+    options:baseOpts()
+  });
+
+  document.getElementById('fob-table').innerHTML = `
+    <thead><tr><th>Grano</th>${ctries.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+    <tbody>${grainNames.map((grain,gi)=>`<tr><td><b>${grain}</b></td>${ctries.map(c=>`<td>${fobVals[c][gi]||'—'}</td>`).join('')}</tr>`).join('')}</tbody>`;
+}
+
+// ══════════════════════════════════════════
+// COUNTRIES
+// ══════════════════════════════════════════
+function showCountry(c, tab) {
+  ['bra','usa','arg'].forEach(id=>document.getElementById('ctry-'+id).style.display='none');
+  document.getElementById('ctry-'+c).style.display='block';
+  document.querySelectorAll('.ctry-tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  renderCountryCharts(c);
+}
+
+function renderCountries() { renderCountryCharts('bra'); }
+
+function renderCountryCharts(c) {
+  const camp = ['19/20','20/21','21/22','22/23','23/24','24/25E'];
+  const sojaData = {bra:[122.5,135.9,127.0,154.6,162.0,169.0],usa:[96.8,113.3,121.5,116.4,113.3,124.9],arg:[55.3,48.8,46.2,43.9,50.0,48.0]};
+  const maizData = {bra:[103.0,87.0,116.0,135.0,121.0,127.0],usa:[360.3,359.2,383.9,349.6,389.7,389.7],arg:[49.8,51.5,53.0,46.2,46.3,50.0]};
+  const expSoja = {bra:[74.7,82.4,86.0,99.7,97.5,100.5],usa:[51.9,61.0,59.5,55.6,46.0,52.4],arg:[41.2,36.8,35.5,34.2,36.8,35.5]};
+  const expMaiz = {bra:[33.5,34.0,43.0,55.0,46.5,48.0],usa:[69.4,67.9,62.1,69.0,50.8,63.5],arg:[37.5,39.2,40.8,35.0,35.8,38.0]};
+
+  const sid = c==='bra'?'bra-soja':c==='usa'?'usa-soja':'arg-soja';
+  const mid = c==='bra'?'bra-maiz':c==='usa'?'usa-maiz':'arg-maiz';
+
+  if(charts[sid]) charts[sid].destroy();
+  charts[sid] = new Chart(document.getElementById(sid).getContext('2d'), {
+    type:'bar',
+    data:{labels:camp,datasets:[
+      {label:'Producción (MT)',data:sojaData[c],backgroundColor:TEAL+'88',borderColor:TEAL,borderWidth:1,borderRadius:2},
+      {label:'Exportaciones (MT)',type:'line',data:expSoja[c],borderColor:BLUE,backgroundColor:'transparent',borderWidth:2,pointRadius:5,pointBackgroundColor:'#fff',pointBorderColor:BLUE,fill:false},
+    ]},
+    options:baseOpts()
+  });
+
+  if(charts[mid]) charts[mid].destroy();
+  charts[mid] = new Chart(document.getElementById(mid).getContext('2d'), {
+    type:'bar',
+    data:{labels:camp,datasets:[
+      {label:'Producción (MT)',data:maizData[c],backgroundColor:YELLOW+'88',borderColor:YELLOW,borderWidth:1,borderRadius:2},
+      {label:'Exportaciones (MT)',type:'line',data:expMaiz[c],borderColor:RED,backgroundColor:'transparent',borderWidth:2,pointRadius:5,pointBackgroundColor:'#fff',pointBorderColor:RED,fill:false},
+    ]},
+    options:baseOpts()
+  });
+}
+
+// ══════════════════════════════════════════
+// MACRO
+// ══════════════════════════════════════════
+function renderMacro() {
+  if(charts['fed-prob']) charts['fed-prob'].destroy();
+  charts['fed-prob'] = new Chart(document.getElementById('fed-prob').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels:['Mar 25','May 25','Jun 25','Jul 25','Sep 25','Nov 25','Dic 25'],
+      datasets:[
+        {label:'Sin cambio',data:[85,72,55,42,35,28,22],backgroundColor:'#64748b55',borderColor:'#64748b',borderWidth:1,borderRadius:2},
+        {label:'Baja −25pb',data:[12,22,35,42,45,42,38],backgroundColor:TEAL+'88',borderColor:TEAL,borderWidth:1,borderRadius:2},
+        {label:'Baja −50pb',data:[3,6,10,16,20,30,40],backgroundColor:BLUE+'55',borderColor:BLUE,borderWidth:1,borderRadius:2},
+      ]
+    },
+    options:baseOpts()
+  });
+
+  const dxl = genDates(90); let dxy=104.5;
+  const dxd = dxl.map(()=>{dxy=dxy*(1+(Math.random()-0.52)*0.006);return +dxy.toFixed(2);});
+  if(charts['dxy-chart']) charts['dxy-chart'].destroy();
+  charts['dxy-chart'] = new Chart(document.getElementById('dxy-chart').getContext('2d'), {
+    type:'line',
+    data:{labels:dxl,datasets:[{
+      label:'DXY',data:dxd,borderColor:YELLOW,backgroundColor:YELLOW+'15',fill:true,borderWidth:2,pointRadius:0,tension:0.3
+    }]},
+    options:baseOpts()
+  });
+
+  document.getElementById('geo-macro').innerHTML = [
+    {lbl:'Guerra Rusia–Ucrania',pct:85,color:RED},
+    {lbl:'Tensión EE.UU.–China',pct:72,color:YELLOW},
+    {lbl:'Elecciones globales 2025',pct:55,color:BLUE},
+    {lbl:'Conflicto Medio Oriente',pct:65,color:YELLOW},
+    {lbl:'Riesgo climático La Niña',pct:45,color:TEAL},
+    {lbl:'Aranceles comerciales',pct:78,color:RED},
+  ].map(r=>`<div class="risk-row">
+    <span class="risk-name">${r.lbl}</span>
+    <div class="risk-track"><div class="risk-fill" style="width:${r.pct}%;background:${r.color}"></div></div>
+    <span class="risk-val" style="color:${r.color}">${r.pct}%</span>
+  </div>`).join('');
+}
+
+// ══════════════════════════════════════════
+// SIGNALS
+// ══════════════════════════════════════════
+function renderSignals() {
+  const g = DB[currentGrain];
+  document.getElementById('signal-grid').innerHTML = `
+    <div class="signal-card bull">
+      <div class="signal-head" style="color:var(--green)">▲ 5 factores alcistas</div>
+      ${g.bull.map((p,i)=>`<div class="signal-item"><span class="signal-num">${i+1}</span><span>${p}</span></div>`).join('')}
+    </div>
+    <div class="signal-card bear">
+      <div class="signal-head" style="color:var(--red)">▼ 5 factores bajistas</div>
+      ${g.bear.map((p,i)=>`<div class="signal-item"><span class="signal-num">${i+1}</span><span>${p}</span></div>`).join('')}
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// UPDATE PANEL
+// ══════════════════════════════════════════
+function renderUpdate() {
+  const grains = ['soja','trigo','maiz','cebada','girasol'];
+  const names = {soja:'Soja',trigo:'Trigo',maiz:'Maíz',cebada:'Cebada',girasol:'Girasol'};
+  document.getElementById('price-inputs').innerHTML = grains.map(gr=>`
+    <div class="upd-field">
+      <label class="upd-label" style="color:var(--teal-dark)">${names[gr]} — CME (USD/Tn)</label>
+      <input class="upd-input" id="pi-${gr}" type="number" step="0.1" value="${DB[gr].kpis[0].val.replace(',','.')}">
+    </div>
+    <div class="upd-field">
+      <label class="upd-label">${names[gr]} — ARG A3 (USD/Tn)</label>
+      <input class="upd-input" id="pi-arg-${gr}" type="number" step="0.1" value="${DB[gr].kpis[1].val.replace(',','.')}">
+    </div>`).join('');
+}
+
+function savePrices() {
+  const grains = ['soja','trigo','maiz','cebada','girasol'];
+  grains.forEach(gr=>{
+    const cv = document.getElementById('pi-'+gr)?.value;
+    const av = document.getElementById('pi-arg-'+gr)?.value;
+    if(cv) DB[gr].kpis[0].val = cv.replace('.',',');
+    if(av) DB[gr].kpis[1].val = av.replace('.',',');
+  });
+  updateTs();
+  alert('✓ Precios actualizados correctamente');
+}
+
+function saveWasde() {
+  const g = DB[currentGrain].wasde;
+  ['prod','cons','stk','exp'].forEach((k,i)=>{
+    const ids = ['wi-prod','wi-cons','wi-stk','wi-exp'];
+    const v = document.getElementById(ids[i])?.value;
+    if(v) g[k] = v.replace('.',',');
+  });
+  updateTs();
+  alert('✓ Datos WASDE actualizados');
+}
+
+function saveFunds() {
+  const g = DB[currentGrain].funds;
+  const s=document.getElementById('fi-spec')?.value;
+  const d=document.getElementById('fi-idx')?.value;
+  const h=document.getElementById('fi-hdg')?.value;
+  if(s) g.spec = parseInt(s).toLocaleString('es-AR',{signDisplay:'always'});
+  if(d) g.idx = parseInt(d).toLocaleString('es-AR',{signDisplay:'always'});
+  if(h) g.hdg = parseInt(h).toLocaleString('es-AR',{signDisplay:'always'});
+  updateTs();
+  alert('✓ Posición de fondos actualizada');
+}
+
+// ══════════════════════════════════════════
+// UTILS
 // ══════════════════════════════════════════
 function updateTs() {
   const now = new Date();
@@ -1558,8 +2875,36 @@ function setSojaVencSelection(idx, key) {
 
 // ── Apply live data to main DB ─────────────────────────────────────
 function applyLiveToUI() {
-  // Los KPIs de la pestaña "Resumen" se removieron (eran datos hardcodeados).
-  // Todos los datos en vivo se muestran directamente en las cards de esta pestaña.
+  const now = new Date();
+  const mes = now.getMonth()+1, año = now.getFullYear();
+
+  // KPI[0] (precio CME) — se autoactualiza con A3 Info / Home (Soja Chicago, Maíz Chicago)
+  ['soja','maiz','trigo'].forEach(g => {
+    const c = LIVE.cmeSpot[g];
+    if(!c || !Number.isFinite(c.val)) return;
+    DB[g].kpis[0] = {
+      lbl:  'Precio spot CME ⚡',
+      val:  c.val.toFixed(1).replace('.',','),
+      unit: 'USD/Tn',
+      chg:  c.fecha ? ('cotiz. ' + String(c.fecha).split('T')[0]) : '',
+      up:   true,
+      live: true,
+    };
+  });
+
+  // KPI[1] (precio ARG) — FAS calculado vs FOB MAGYP en vivo
+  ['soja','maiz','trigo'].forEach(g => {
+    const r = calcFAS(g, mes, año);
+    if(!r) return;
+    DB[g].kpis[1] = {
+      lbl:  'FOB ARG (MAGYP) ⚡',
+      val:  r.fob.toFixed(1).replace('.',','),
+      unit: 'USD/Tn',
+      chg:  `FAS: ${r.fasUSD.toFixed(0)} u$s/tn`,
+      up:   true,
+      live: true,
+    };
+  });
 }
 
 // ── Render the live tab ────────────────────────────────────────────
@@ -2115,6 +3460,7 @@ function resetConfig() {
 // ══════════════════════════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
   updateTs();
+  renderOverview();
   setInterval(fetchLiveAll, 300000);
   // Pre-load cache immediately (instant display while real fetch runs)
   (function preloadCache() {
