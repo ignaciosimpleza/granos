@@ -1773,11 +1773,14 @@ function renderSpotStrip(wrapId, sourceId, dataObj, order, defaultFmt) {
   const chips = order.filter(o => dataObj[o.k]).map(o => {
     const c   = dataObj[o.k];
     const fmt = o.fmt || defaultFmt;
+    const fecha = c.fecha ? String(c.fecha).split('T')[0] : '';
+    const ref = [c.nombre, fecha].filter(Boolean).join(' · ');
     return `
-      <div class="tc-chip">
-        <div class="tc-mes">${o.lbl}</div>
+      <div class="tc-chip" title="${ref ? 'A3: '+ref : ''}">
+        <div class="tc-mes">${o.lbl} <span style="font-size:8px;color:#0a8f63">⚡</span></div>
         <div class="tc-val">${fmt(c.val)}</div>
         <div style="font-size:9px;color:var(--text4);margin-top:2px">${c.unit || ''}</div>
+        ${ref ? `<div style="font-size:8px;color:var(--text4);margin-top:3px;border-top:1px solid var(--border);padding-top:3px">A3: ${ref}</div>` : ''}
       </div>`;
   }).join('');
 
@@ -1829,9 +1832,10 @@ function renderTCStrip() {
   }
 
   const chips = LIVE.tcFuturos.slice(0,12).map(t=>`
-    <div class="tc-chip">
-      <div class="tc-mes">${t.label||t.contrato}</div>
+    <div class="tc-chip" title="A3: ${t.contrato||''}">
+      <div class="tc-mes">${t.label||t.contrato} <span style="font-size:8px;color:#0a8f63">⚡</span></div>
       <div class="tc-val">$${t.tc.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+      ${t.contrato ? `<div style="font-size:8px;color:var(--text4);margin-top:3px;border-top:1px solid var(--border);padding-top:3px">A3: ${t.contrato}</div>` : ''}
     </div>`).join('');
 
   wrap.innerHTML = `<div class="tc-curve-wrap">${chips}</div>`;
@@ -1862,6 +1866,13 @@ function renderFOBLiveTable() {
   const now = new Date();
   const mes = now.getMonth()+1, año = now.getFullYear();
   const tc  = getTC(mes, año);
+  // Contrato DLR exacto usado para el TC (mes corriente o más cercano)
+  const tcC = LIVE.tcFuturos.find(t => t.mes===mes && t.año===año)
+           || LIVE.tcFuturos.slice().sort((a,b)=>Math.abs((a.año*100+a.mes)-(año*100+mes))-Math.abs((b.año*100+b.mes)-(año*100+mes)))[0];
+  const tcContrato = tcC ? (tcC.contrato || ('DLR '+tcC.label)) : '—';
+
+  // NCMs (para trazabilidad del FOB)
+  const NCM_REV = { soja:'12019000190C', aceite:'15071000100Q', harina:'23040010100B', maiz:'10059010120A', trigo:'10011900110H' };
 
   const prods = [
     {k:'soja',   n:'Soja', ret: LIVE_CFG.retenciones.soja},
@@ -1931,19 +1942,24 @@ function renderFOBLiveTable() {
     <table class="data-table">
       <thead><tr>
         <th>Producto</th>
-        <th>FOB (u$s)</th>
-        <th>Ret %</th>
-        <th>Ret (u$s)</th>
-        <th>Fobbing</th>
-        <th>FAS (u$s)</th>
-        <th>TC (ARS)</th>
-        <th>FAS ($) oficial</th>
+        <th>FOB (u$s) <sup title="en vivo (MAGYP)">⚡</sup></th>
+        <th>Ret % <sup title="parámetro (⚙)">✎</sup></th>
+        <th>Ret (u$s) <sup title="calculado">ƒ</sup></th>
+        <th>Fobbing <sup title="parámetro (⚙)">✎</sup></th>
+        <th>FAS (u$s) <sup title="calculado">ƒ</sup></th>
+        <th>TC (ARS) <sup title="en vivo (A3)">⚡</sup></th>
+        <th>FAS ($) oficial <sup title="en vivo (DINEM)">⚡</sup></th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
   </div>
-  <p style="font-size:10px;color:var(--text4);padding:8px 16px">
-    FAS (u$s) = FOB − [(FOB − ${LIVE_CFG.descImp}) × Ret%] − Fobbing · TC: ${MES_LABEL[mes]} ${año}<br>
+  <div style="font-size:9.5px;color:var(--text3);padding:8px 16px 0;line-height:1.7">
+    <strong>⚡ en vivo</strong> · <strong>ƒ calculado</strong> · <strong>✎ parámetro (⚙ Parámetros)</strong><br>
+    <strong>FOB (u$s)</strong> ⚡ — MAGYP FOB oficial${LIVE.fobFecha ? ' · '+LIVE.fobFecha.replace(' *','') : ''} · NCM: Soja ${NCM_REV.soja}, Maíz ${NCM_REV.maiz}, Trigo ${NCM_REV.trigo}, Aceite ${NCM_REV.aceite}, Harina ${NCM_REV.harina}<br>
+    <strong>TC (ARS)</strong> ⚡ — A3 · contrato <strong>${tcContrato}</strong> (hoja Financiero) · ${MES_LABEL[mes]} ${año}<br>
+    <strong>Ret (u$s) / FAS (u$s)</strong> ƒ — FAS (u$s) = FOB − [(FOB − ${LIVE_CFG.descImp}) × Ret%] − Fobbing
+  </div>
+  <p style="font-size:10px;color:var(--text4);padding:4px 16px 8px">
     ${dinemTag}${anyCalc ? ' · <sup>c</sup> FAS calculado (DINEM no publica oficial para ese producto)' : ''}
   </p>`;
 }
