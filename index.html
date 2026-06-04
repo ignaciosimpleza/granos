@@ -1989,22 +1989,59 @@ function renderMatbaCards() {
     return auto ? { val: auto.precio, fuente: 'auto', contrato: auto.contrato } : { val: null, fuente: null };
   }
 
-  wrap.innerHTML = `<div class="g3" style="margin-bottom:0">
+  // ── Etiquetas de trazabilidad ──
+  const tgLive  = (t) => `<span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:rgba(50,232,169,0.20);color:#0a8f63;margin-left:5px;vertical-align:middle">⚡ ${t}</span>`;
+  const tgCalc  = `<span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:rgba(108,134,140,0.15);color:var(--azul-pizarra);margin-left:5px;vertical-align:middle">ƒ calc</span>`;
+  const tgParam = `<span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:rgba(247,220,111,0.35);color:#8a6d00;margin-left:5px;vertical-align:middle">✎ vos</span>`;
+  const sub = (t) => `<span style="font-size:8.5px;color:var(--text4);font-weight:400">${t}</span>`;
+  const row = (label, subTxt, val, valStyle='', rowStyle='') => `
+        <div class="fas-row" style="${rowStyle}">
+          <span class="fas-label" style="display:flex;flex-direction:column;line-height:1.25;gap:1px">
+            <span>${label}</span>${subTxt ? sub(subTxt) : ''}
+          </span>
+          <span class="fas-val" style="${valStyle}">${val}</span>
+        </div>`;
+
+  // Contrato de TC (dólar futuro) realmente usado para un mes/año
+  function tcInfo(mes, año) {
+    if(!LIVE.tcFuturos.length) return null;
+    const exact = LIVE.tcFuturos.find(t => t.mes===mes && t.año===año);
+    if(exact) return { ...exact, exact:true };
+    const t = año*100+mes; let best=null, bd=Infinity;
+    LIVE.tcFuturos.forEach(f => { const d=Math.abs((f.año*100+f.mes)-t); if(d<bd){bd=d;best=f;} });
+    return best ? { ...best, exact:false } : null;
+  }
+
+  const retPct = (LIVE_CFG.retenciones.soja*100).toFixed(1);
+  const fobFch = (LIVE.fobFecha || '').replace(' *','');
+
+  wrap.innerHTML = `
+  <div style="font-size:9.5px;color:var(--text3);margin-bottom:10px;line-height:1.6">
+    ${tgLive('en vivo')} traído de la fuente (indicador exacto debajo del dato) &nbsp;·&nbsp;
+    ${tgCalc} calculado &nbsp;·&nbsp; ${tgParam} parámetro que cargás vos (⚙ Parámetros)
+  </div>
+  <div class="g3" style="margin-bottom:0">
     ${venc.map((v, idx) => {
       const options = avail.map(a =>
         `<option value="${a.key}" ${a.key === v.key ? 'selected' : ''}>${a.label}</option>`
       ).join('');
-      const r      = calcFAS('soja', v.mes, v.año);
-      const tc     = getTC(v.mes, v.año);
+      const r       = calcFAS('soja', v.mes, v.año);
+      const ti      = tcInfo(v.mes, v.año);
+      const tc      = ti ? ti.tc : null;
       const matInfo = getMatba(v.mes, v.año, v.key);
-      const matba  = matInfo.val;
-      const premio = (matba !== null && r) ? matba - r.fasUSD : null;
+      const matba   = matInfo.val;
+      const premio  = (matba !== null && r) ? matba - r.fasUSD : null;
       const premioColor = premio === null ? 'var(--text4)' : premio >= 0 ? 'var(--green)' : 'var(--terracota)';
-      const matbaTag = matInfo.fuente === 'auto'
-        ? '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(50,232,169,0.15);color:var(--verde-menta);font-weight:700;margin-left:5px">A3 ⚡</span>'
-        : matInfo.fuente === 'manual'
-          ? '<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(108,134,140,0.15);color:var(--azul-pizarra);font-weight:700;margin-left:5px">manual</span>'
-          : '';
+
+      const matbaLabel = matInfo.fuente === 'auto'   ? `MATBA (u$s/tn) ${tgLive('A3')}`
+                       : matInfo.fuente === 'manual' ? `MATBA (u$s/tn) ${tgParam}`
+                       : 'MATBA (u$s/tn)';
+      const matbaSub = matInfo.fuente === 'auto'
+        ? `A3 · contrato <strong>${matInfo.contrato}</strong> · hoja Resumen Agropecuarios`
+        : (matInfo.fuente === 'manual' ? 'cargado a mano' : 'sin dato en A3 — cargalo a mano');
+      const tcSub = ti
+        ? `A3 · <strong>${ti.contrato || ('DLR '+ti.label)}</strong>${ti.exact ? '' : ' (vto. más cercano)'} · hoja Financiero`
+        : 'sin dato';
 
       return `<div class="fas-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px">
@@ -2015,42 +2052,33 @@ function renderMatbaCards() {
           </select>
         </div>
 
-        <div class="fas-row">
-          <span class="fas-label">FOB Forward</span>
-          <span class="fas-val">${r ? r.fob.toFixed(0)+' u$s' : '—'}</span>
-        </div>
-        <div class="fas-row">
-          <span class="fas-label">Retenciones</span>
-          <span class="fas-val" style="color:var(--terracota)">${r ? '−'+r.retU.toFixed(0)+' u$s' : '—'}</span>
-        </div>
-        <div class="fas-row">
-          <span class="fas-label">Fobbing</span>
-          <span class="fas-val" style="color:var(--terracota)">−${LIVE_CFG.fobbing.soja} u$s</span>
-        </div>
+        ${row(`FOB Forward ${tgLive('MAGYP')}`, `MAGYP FOB oficial · soja NCM 12019000190C${fobFch ? ' · '+fobFch : ''}`, r ? r.fob.toFixed(0)+' u$s' : '—')}
+        ${row(`Retenciones ${tgCalc}`, `(FOB − ${LIVE_CFG.descImp}) × ${retPct}%`, r ? '−'+r.retU.toFixed(0)+' u$s' : '—', 'color:var(--terracota)')}
+        ${row(`Fobbing ${tgParam}`, 'parámetro editable (⚙ Parámetros)', '−'+LIVE_CFG.fobbing.soja+' u$s', 'color:var(--terracota)')}
         <div class="fas-row fas-total">
-          <span class="fas-label">FAS teórico</span>
+          <span class="fas-label" style="display:flex;flex-direction:column;line-height:1.25;gap:1px">
+            <span>FAS teórico ${tgCalc}</span>${sub('FOB − Retenciones − Fobbing')}
+          </span>
           <span class="fas-val">${r ? r.fasUSD.toFixed(0)+' u$s' : '—'}</span>
         </div>
-        <div class="fas-row" style="margin-top:8px">
-          <span class="fas-label">TC futuro</span>
-          <span class="fas-val">${tc ? '$'+tc.toLocaleString('es-AR',{maximumFractionDigits:0}) : '—'}</span>
-        </div>
-        <div class="fas-row">
-          <span class="fas-label">FAS en pesos</span>
-          <span class="fas-val">${r && tc ? '$'+Math.round(r.fasUSD*tc).toLocaleString('es-AR') : '—'}</span>
-        </div>
+        ${row(`TC futuro ${tgLive('A3')}`, tcSub, tc ? '$'+tc.toLocaleString('es-AR',{maximumFractionDigits:0}) : '—', '', 'margin-top:8px')}
+        ${row(`FAS en pesos ${tgCalc}`, 'FAS teórico × TC futuro', (r && tc) ? '$'+Math.round(r.fasUSD*tc).toLocaleString('es-AR') : '—')}
 
         <div style="border-top:2px solid var(--border);margin-top:12px;padding-top:12px">
-          <div class="fas-row" style="margin-bottom:8px">
-            <span class="fas-label" style="font-weight:600">MATBA (u$s/tn) ${matbaTag}</span>
+          <div class="fas-row" style="margin-bottom:4px;align-items:flex-start">
+            <span class="fas-label" style="display:flex;flex-direction:column;line-height:1.25;gap:1px">
+              <span style="font-weight:600">${matbaLabel}</span>${sub(matbaSub)}
+            </span>
             <input type="number" step="0.5" placeholder="—"
               value="${matba !== null ? matba : ''}"
               onchange="setMatba('soja','${v.key}',this.value);renderMatbaCards()"
-              title="${matInfo.contrato ? 'A3 Info: '+matInfo.contrato+'. Vacío usa el valor automático.' : 'Ingresá un precio para override manual.'}"
+              title="${matInfo.contrato ? 'A3 Info · '+matInfo.contrato+'. Vacío usa el valor automático.' : 'Ingresá un precio para override manual.'}"
               style="width:80px;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:12px;font-weight:600;text-align:right;font-family:'Sora',sans-serif;background:var(--bg2);outline:none">
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">
-            <span style="font-size:12px;font-weight:700">Premio / Desc.</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0">
+            <span class="fas-label" style="display:flex;flex-direction:column;line-height:1.25;gap:1px">
+              <span style="font-size:12px;font-weight:700;color:var(--text)">Premio / Desc. ${tgCalc}</span>${sub('MATBA − FAS teórico')}
+            </span>
             <span style="font-size:16px;font-weight:800;color:${premioColor}">
               ${premio === null ? '—' : (premio>=0?'+':'')+premio.toFixed(1)+' u$s'}
             </span>
