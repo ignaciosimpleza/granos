@@ -896,7 +896,7 @@ body {
 
   <!-- MATBA / Premio por vencimiento -->
   <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
-    <span style="font-size:14px;font-weight:700;color:var(--text)">Soja — FAS teórico por vencimiento · Premio MATBA</span>
+    <span style="font-size:14px;font-weight:700;color:var(--text)">FAS teórico por vencimiento · Premio MATBA</span>
     <span class="card-source" id="matba-source" style="font-size:10px">—</span>
   </div>
   <div id="matba-wrap">
@@ -1042,6 +1042,7 @@ const LIVE_CFG = {
       harina: (parseFloat(localStorage.getItem('smz_ret_harina')) || 22.5) / 100,
       maiz:   (parseFloat(localStorage.getItem('smz_ret_maiz'))   || 8.5)  / 100,
       trigo:  (parseFloat(localStorage.getItem('smz_ret_trigo'))  || 7.5)  / 100,
+      girasol:(parseFloat(localStorage.getItem('smz_ret_girasol'))|| 7)    / 100,
     };
   },
   get fobbing() {
@@ -1051,6 +1052,7 @@ const LIVE_CFG = {
       harina: parseFloat(localStorage.getItem('smz_fob_harina')) || 7,
       maiz:   parseFloat(localStorage.getItem('smz_fob_maiz'))   || 4,
       trigo:  parseFloat(localStorage.getItem('smz_fob_trigo'))  || 4,
+      girasol:parseFloat(localStorage.getItem('smz_fob_girasol'))|| 4,
     };
   },
   get descImp() {
@@ -1538,22 +1540,55 @@ function availableVencs(grain) {
     }));
 }
 
-// Selección persistente de qué 3 vencimientos mostrar en las cards MATba de Soja
-const VENC_SELECTION_KEY = 'smz_soja_vencs';
-function getSojaVencSelection() {
+// Cultivos posibles en las cards de Premio MATBA. La lista que se muestra se
+// arma dinámicamente con los granos que A3 Info realmente trae (LIVE.matbaAuto).
+const MATBA_GRAIN_LABELS = { soja:'Soja', maiz:'Maíz', trigo:'Trigo', girasol:'Girasol' };
+const MATBA_GRAIN_ORDER  = ['soja','maiz','trigo','girasol'];
+function matbaGrains() {
+  const out = MATBA_GRAIN_ORDER
+    .filter(k => (LIVE.matbaAuto[k] || []).length > 0)
+    .map(k => ({ k, lbl: MATBA_GRAIN_LABELS[k] || k }));
+  return out.length ? out : [{ k:'soja', lbl:'Soja' }];
+}
+function getMatbaGrain() {
+  const g = localStorage.getItem('smz_matba_grain');
+  const avail = matbaGrains();
+  return avail.some(x => x.k === g) ? g : avail[0].k;
+}
+function setMatbaGrain(g) {
+  if(MATBA_GRAIN_LABELS[g]) localStorage.setItem('smz_matba_grain', g);
+  renderMatbaCards();
+}
+// Editar Retenciones (%) y Fobbing (u$s) por cultivo desde las cards.
+// Persisten en las mismas claves que el panel ⚙ Parámetros, así quedan sincronizados.
+function setMatbaRet(grain, val) {
+  const n = parseFloat(val);
+  if(Number.isFinite(n) && n >= 0) localStorage.setItem('smz_ret_'+grain, n);
+  renderMatbaCards();
+  if(typeof renderFOBLiveTable === 'function') renderFOBLiveTable();
+}
+function setMatbaFob(grain, val) {
+  const n = parseFloat(val);
+  if(Number.isFinite(n) && n >= 0) localStorage.setItem('smz_fob_'+grain, n);
+  renderMatbaCards();
+  if(typeof renderFOBLiveTable === 'function') renderFOBLiveTable();
+}
+// Selección persistente de los 3 vencimientos a mostrar, por cultivo
+function vencSelKey(g) { return 'smz_vencs_' + g; }
+function getVencSelection(grain) {
   try {
-    const stored = JSON.parse(localStorage.getItem(VENC_SELECTION_KEY) || 'null');
+    const stored = JSON.parse(localStorage.getItem(vencSelKey(grain)) || 'null');
     if(Array.isArray(stored) && stored.length === 3) return stored;
   } catch(e) {}
-  // Default: primeros 3 futuros disponibles
-  const avail = availableVencs('soja');
+  const avail = availableVencs(grain);
   return avail.slice(0, 3).map(v => v.key);
 }
-function setSojaVencSelection(idx, key) {
-  const cur = getSojaVencSelection().slice();
+function setVencSelection(idx, key) {
+  const grain = getMatbaGrain();
+  const cur = getVencSelection(grain).slice();
   while(cur.length < 3) cur.push(null);
   cur[idx] = key;
-  localStorage.setItem(VENC_SELECTION_KEY, JSON.stringify(cur));
+  localStorage.setItem(vencSelKey(grain), JSON.stringify(cur));
   renderMatbaCards();
 }
 
@@ -1662,7 +1697,16 @@ async function loadPizarra() {
   } finally {
     PIZARRA.loading = false;
     renderPizarraCard();
+    // La tabla FOB/FAS y las cards MATBA muestran la Pizarra (disponible BCR) como referencia
+    if(typeof renderFOBLiveTable === 'function') renderFOBLiveTable();
+    if(typeof renderMatbaCards === 'function')   renderMatbaCards();
   }
+}
+
+// Última cotización de Pizarra (disponible BCR) para un grano: la serie viene ASC por fecha.
+function latestPizarra(grain) {
+  const arr = PIZARRA.data[grain] || [];
+  return arr.length ? arr[arr.length - 1] : null;   // {fecha, precio}
 }
 
 function setPizarraGrain(g) { PIZARRA.grano = g; renderPizarraCard(); }
@@ -1773,11 +1817,14 @@ function renderSpotStrip(wrapId, sourceId, dataObj, order, defaultFmt) {
   const chips = order.filter(o => dataObj[o.k]).map(o => {
     const c   = dataObj[o.k];
     const fmt = o.fmt || defaultFmt;
+    const fecha = c.fecha ? String(c.fecha).split('T')[0] : '';
+    const ref = [c.nombre, fecha].filter(Boolean).join(' · ');
     return `
-      <div class="tc-chip">
-        <div class="tc-mes">${o.lbl}</div>
+      <div class="tc-chip" title="${ref ? 'A3: '+ref : ''}">
+        <div class="tc-mes">${o.lbl} <span style="font-size:8px;color:#0a8f63">⚡</span></div>
         <div class="tc-val">${fmt(c.val)}</div>
         <div style="font-size:9px;color:var(--text4);margin-top:2px">${c.unit || ''}</div>
+        ${ref ? `<div style="font-size:8px;color:var(--text4);margin-top:3px;border-top:1px solid var(--border);padding-top:3px">A3: ${ref}</div>` : ''}
       </div>`;
   }).join('');
 
@@ -1829,9 +1876,10 @@ function renderTCStrip() {
   }
 
   const chips = LIVE.tcFuturos.slice(0,12).map(t=>`
-    <div class="tc-chip">
-      <div class="tc-mes">${t.label||t.contrato}</div>
+    <div class="tc-chip" title="A3: ${t.contrato||''}">
+      <div class="tc-mes">${t.label||t.contrato} <span style="font-size:8px;color:#0a8f63">⚡</span></div>
       <div class="tc-val">$${t.tc.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+      ${t.contrato ? `<div style="font-size:8px;color:var(--text4);margin-top:3px;border-top:1px solid var(--border);padding-top:3px">A3: ${t.contrato}</div>` : ''}
     </div>`).join('');
 
   wrap.innerHTML = `<div class="tc-curve-wrap">${chips}</div>`;
@@ -1862,6 +1910,13 @@ function renderFOBLiveTable() {
   const now = new Date();
   const mes = now.getMonth()+1, año = now.getFullYear();
   const tc  = getTC(mes, año);
+  // Contrato DLR exacto usado para el TC (mes corriente o más cercano)
+  const tcC = LIVE.tcFuturos.find(t => t.mes===mes && t.año===año)
+           || LIVE.tcFuturos.slice().sort((a,b)=>Math.abs((a.año*100+a.mes)-(año*100+mes))-Math.abs((b.año*100+b.mes)-(año*100+mes)))[0];
+  const tcContrato = tcC ? (tcC.contrato || ('DLR '+tcC.label)) : '—';
+
+  // NCMs (para trazabilidad del FOB)
+  const NCM_REV = { soja:'12019000190C', aceite:'15071000100Q', harina:'23040010100B', maiz:'10059010120A', trigo:'10011900110H' };
 
   const prods = [
     {k:'soja',   n:'Soja', ret: LIVE_CFG.retenciones.soja},
@@ -1889,6 +1944,12 @@ function renderFOBLiveTable() {
       fasCell = '—';
     }
 
+    // Pizarra disponible BCR (Cámara Arbitral) — solo para granos físicos (soja/maíz/trigo)
+    const piz = latestPizarra(p.k);
+    const pizCell = piz
+      ? `<strong title="Precio de Pizarra disponible · Cámara Arbitral de Cereales (BCR) · ${piz.fecha}">$${piz.precio.toLocaleString('es-AR',{maximumFractionDigits:0})}</strong>`
+      : '<span style="color:var(--text4)">—</span>';
+
     return `<tr>
       <td><strong>${p.n}</strong></td>
       <td>${r.fob.toFixed(0)}</td>
@@ -1898,6 +1959,7 @@ function renderFOBLiveTable() {
       <td><strong>${r.fasUSD.toFixed(0)}</strong></td>
       <td>${tc ? '$'+tc.toLocaleString('es-AR',{maximumFractionDigits:0}) : '—'}</td>
       <td>${fasCell}</td>
+      <td>${pizCell}</td>
     </tr>`;
   }).join('');
 
@@ -1931,19 +1993,26 @@ function renderFOBLiveTable() {
     <table class="data-table">
       <thead><tr>
         <th>Producto</th>
-        <th>FOB (u$s)</th>
-        <th>Ret %</th>
-        <th>Ret (u$s)</th>
-        <th>Fobbing</th>
-        <th>FAS (u$s)</th>
-        <th>TC (ARS)</th>
-        <th>FAS ($) oficial</th>
+        <th>FOB (u$s) <sup title="en vivo (MAGYP)">⚡</sup></th>
+        <th>Ret % <sup title="parámetro (⚙)">✎</sup></th>
+        <th>Ret (u$s) <sup title="calculado">ƒ</sup></th>
+        <th>Fobbing <sup title="parámetro (⚙)">✎</sup></th>
+        <th>FAS (u$s) <sup title="calculado">ƒ</sup></th>
+        <th>TC (ARS) <sup title="en vivo (A3)">⚡</sup></th>
+        <th>FAS ($) oficial <sup title="en vivo (DINEM)">⚡</sup></th>
+        <th>Pizarra ($) BCR <sup title="en vivo (Cámara Arbitral / BCR)">⚡</sup></th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
   </div>
-  <p style="font-size:10px;color:var(--text4);padding:8px 16px">
-    FAS (u$s) = FOB − [(FOB − ${LIVE_CFG.descImp}) × Ret%] − Fobbing · TC: ${MES_LABEL[mes]} ${año}<br>
+  <div style="font-size:9.5px;color:var(--text3);padding:8px 16px 0;line-height:1.7">
+    <strong>⚡ en vivo</strong> · <strong>ƒ calculado</strong> · <strong>✎ parámetro (⚙ Parámetros)</strong><br>
+    <strong>FOB (u$s)</strong> ⚡ — MAGYP FOB oficial${LIVE.fobFecha ? ' · '+LIVE.fobFecha.replace(' *','') : ''} · NCM: Soja ${NCM_REV.soja}, Maíz ${NCM_REV.maiz}, Trigo ${NCM_REV.trigo}, Aceite ${NCM_REV.aceite}, Harina ${NCM_REV.harina}<br>
+    <strong>TC (ARS)</strong> ⚡ — A3 · contrato <strong>${tcContrato}</strong> (hoja Financiero) · ${MES_LABEL[mes]} ${año}<br>
+    <strong>Ret (u$s) / FAS (u$s)</strong> ƒ — FAS (u$s) = FOB − [(FOB − ${LIVE_CFG.descImp}) × Ret%] − Fobbing<br>
+    <strong>Pizarra ($) BCR</strong> ⚡ — precio disponible Cámara Arbitral de Cereales (Bolsa de Comercio de Rosario)${(() => { const p = latestPizarra('soja'); return p ? ' · últ. '+p.fecha : ''; })()} · referencia de mercado físico (no aplica a aceite/harina)
+  </div>
+  <p style="font-size:10px;color:var(--text4);padding:4px 16px 8px">
     ${dinemTag}${anyCalc ? ' · <sup>c</sup> FAS calculado (DINEM no publica oficial para ese producto)' : ''}
   </p>`;
 }
@@ -1953,9 +2022,13 @@ function renderMatbaCards() {
   const wrap = document.getElementById('matba-wrap');
   if(!wrap) return;
 
+  const grain    = getMatbaGrain();
+  const grainLbl = MATBA_GRAIN_LABELS[grain] || 'Soja';
+  const NCM_REV  = { soja:'12019000190C', maiz:'10059010120A', trigo:'10011900110H' };
+
   const src = document.getElementById('matba-source');
   if(src) {
-    const hasAuto = (LIVE.matbaAuto.soja || []).length > 0;
+    const hasAuto = (LIVE.matbaAuto[grain] || []).length > 0;
     if(hasAuto) {
       const tag = LIVE.fromCache?.matba ? '⚠ Cacheado · ' : '';
       src.innerHTML = `${tag}Fuente: <a href="${A3_SHEETS_HUMAN_URL}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">A3 Info · Resumen Agropecuarios</a>`;
@@ -1966,12 +2039,24 @@ function renderMatbaCards() {
     }
   }
 
-  const avail   = availableVencs('soja');
-  const selKeys = getSojaVencSelection();
+  // Selector de cultivo — solo los granos que A3 Info realmente trae
+  const grainSel = `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${
+    matbaGrains().map(g => {
+      const on  = g.k === grain;
+      const has = (LIVE.matbaAuto[g.k] || []).length > 0;
+      return `<button onclick="setMatbaGrain('${g.k}')"
+        style="padding:4px 12px;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Sora',sans-serif;
+               border:1px solid ${on?'var(--verde-menta)':'var(--border)'};background:${on?'var(--verde-menta)':'#fff'};
+               color:${on?'#1a1d23':(has?'var(--text3)':'var(--text4)')}">${g.lbl}</button>`;
+    }).join('')
+  }</div>`;
 
-  // Si no hay disponibles aún, mensaje placeholder
+  const avail   = availableVencs(grain);
+  const selKeys = getVencSelection(grain);
+
+  // Si no hay vencimientos disponibles aún para este cultivo
   if(avail.length === 0) {
-    wrap.innerHTML = '<p style="color:var(--text4);font-size:12px;padding:16px">Esperando datos MATba de A3 Info…</p>';
+    wrap.innerHTML = grainSel + `<p style="color:var(--text4);font-size:12px;padding:8px 0">Esperando datos MATBA de ${grainLbl} (A3 Info)…</p>`;
     return;
   }
 
@@ -1981,11 +2066,11 @@ function renderMatbaCards() {
     return found || avail[Math.min(idx, avail.length - 1)];
   });
 
-  // Helper: prioriza override manual; si no, usa auto de A3 Info
+  // Helper: prioriza override manual; si no, usa auto de A3 Info (del cultivo elegido)
   function getMatba(mes, año, key) {
-    const manual = (LIVE.matba.soja || {})[key];
+    const manual = (LIVE.matba[grain] || {})[key];
     if(manual !== undefined && manual !== null) return { val: manual, fuente: 'manual' };
-    const auto = (LIVE.matbaAuto.soja || []).find(m => m.mes === mes && m.año === año);
+    const auto = (LIVE.matbaAuto[grain] || []).find(m => m.mes === mes && m.año === año);
     return auto ? { val: auto.precio, fuente: 'auto', contrato: auto.contrato } : { val: null, fuente: null };
   }
 
@@ -2012,10 +2097,13 @@ function renderMatbaCards() {
     return best ? { ...best, exact:false } : null;
   }
 
-  const retPct = (LIVE_CFG.retenciones.soja*100).toFixed(1);
+  const retPct = ((LIVE_CFG.retenciones[grain]||0)*100).toFixed(1);
+  const fobVal = (LIVE_CFG.fobbing[grain]||0);
   const fobFch = (LIVE.fobFecha || '').replace(' *','');
+  // Estilo común para los inputs editables (Retenciones / Fobbing)
+  const inpSty = "width:54px;border:1px solid var(--border);border-radius:4px;padding:2px 5px;font-size:11px;font-weight:600;text-align:right;font-family:'Sora',sans-serif;background:var(--bg2);outline:none";
 
-  wrap.innerHTML = `
+  wrap.innerHTML = grainSel + `
   <div style="font-size:9.5px;color:var(--text3);margin-bottom:10px;line-height:1.6">
     ${tgLive('en vivo')} traído de la fuente (indicador exacto debajo del dato) &nbsp;·&nbsp;
     ${tgCalc} calculado &nbsp;·&nbsp; ${tgParam} parámetro que cargás vos (⚙ Parámetros)
@@ -2025,7 +2113,7 @@ function renderMatbaCards() {
       const options = avail.map(a =>
         `<option value="${a.key}" ${a.key === v.key ? 'selected' : ''}>${a.label}</option>`
       ).join('');
-      const r       = calcFAS('soja', v.mes, v.año);
+      const r       = calcFAS(grain, v.mes, v.año);
       const ti      = tcInfo(v.mes, v.año);
       const tc      = ti ? ti.tc : null;
       const matInfo = getMatba(v.mes, v.año, v.key);
@@ -2046,15 +2134,28 @@ function renderMatbaCards() {
       return `<div class="fas-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px">
           <span style="font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase">Vencimiento</span>
-          <select onchange="setSojaVencSelection(${idx}, this.value)"
+          <select onchange="setVencSelection(${idx}, this.value)"
             style="flex:1;max-width:120px;border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:12px;font-weight:700;color:var(--text);font-family:'Sora',sans-serif;background:var(--bg2);outline:none;cursor:pointer">
             ${options}
           </select>
         </div>
 
-        ${row(`FOB Forward ${tgLive('MAGYP')}`, `MAGYP FOB oficial · soja NCM 12019000190C${fobFch ? ' · '+fobFch : ''}`, r ? r.fob.toFixed(0)+' u$s' : '—')}
-        ${row(`Retenciones ${tgCalc}`, `(FOB − ${LIVE_CFG.descImp}) × ${retPct}%`, r ? '−'+r.retU.toFixed(0)+' u$s' : '—', 'color:var(--terracota)')}
-        ${row(`Fobbing ${tgParam}`, 'parámetro editable (⚙ Parámetros)', '−'+LIVE_CFG.fobbing.soja+' u$s', 'color:var(--terracota)')}
+        ${row(`FOB Forward ${tgLive('MAGYP')}`, `MAGYP FOB oficial · ${grainLbl} NCM ${NCM_REV[grain]||'—'}${fobFch ? ' · '+fobFch : ''}`, r ? r.fob.toFixed(0)+' u$s' : '—')}
+        <div class="fas-row">
+          <span class="fas-label" style="display:flex;flex-direction:column;line-height:1.25;gap:2px">
+            <span>Retenciones ${tgParam}</span>
+            <span style="font-size:8.5px;color:var(--text4);font-weight:400;display:flex;align-items:center;gap:3px;flex-wrap:wrap">(FOB − ${LIVE_CFG.descImp}) ×
+              <input type="number" step="0.5" min="0" value="${retPct}" onchange="setMatbaRet('${grain}',this.value)" title="Alícuota de retenciones de ${grainLbl}. Editable." style="${inpSty}">%</span>
+          </span>
+          <span class="fas-val" style="color:var(--terracota)">${r ? '−'+r.retU.toFixed(0)+' u$s' : '—'}</span>
+        </div>
+        <div class="fas-row">
+          <span class="fas-label" style="display:flex;flex-direction:column;line-height:1.25;gap:1px">
+            <span>Fobbing ${tgParam}</span>${sub('u$s/tn editable')}
+          </span>
+          <span class="fas-val" style="color:var(--terracota);display:flex;align-items:center;gap:3px;justify-content:flex-end">−
+            <input type="number" step="0.5" min="0" value="${fobVal}" onchange="setMatbaFob('${grain}',this.value)" title="Gastos de fobbing de ${grainLbl} (u$s/tn). Editable." style="${inpSty}"> u$s</span>
+        </div>
         <div class="fas-row fas-total">
           <span class="fas-label" style="display:flex;flex-direction:column;line-height:1.25;gap:1px">
             <span>FAS teórico ${tgCalc}</span>${sub('FOB − Retenciones − Fobbing')}
@@ -2071,7 +2172,7 @@ function renderMatbaCards() {
             </span>
             <input type="number" step="0.5" placeholder="—"
               value="${matba !== null ? matba : ''}"
-              onchange="setMatba('soja','${v.key}',this.value);renderMatbaCards()"
+              onchange="setMatba('${grain}','${v.key}',this.value);renderMatbaCards()"
               title="${matInfo.contrato ? 'A3 Info · '+matInfo.contrato+'. Vacío usa el valor automático.' : 'Ingresá un precio para override manual.'}"
               style="width:80px;border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:12px;font-weight:600;text-align:right;font-family:'Sora',sans-serif;background:var(--bg2);outline:none">
           </div>
