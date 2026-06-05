@@ -1042,6 +1042,7 @@ const LIVE_CFG = {
       harina: (parseFloat(localStorage.getItem('smz_ret_harina')) || 22.5) / 100,
       maiz:   (parseFloat(localStorage.getItem('smz_ret_maiz'))   || 8.5)  / 100,
       trigo:  (parseFloat(localStorage.getItem('smz_ret_trigo'))  || 7.5)  / 100,
+      girasol:(parseFloat(localStorage.getItem('smz_ret_girasol'))|| 7)    / 100,
     };
   },
   get fobbing() {
@@ -1051,6 +1052,7 @@ const LIVE_CFG = {
       harina: parseFloat(localStorage.getItem('smz_fob_harina')) || 7,
       maiz:   parseFloat(localStorage.getItem('smz_fob_maiz'))   || 4,
       trigo:  parseFloat(localStorage.getItem('smz_fob_trigo'))  || 4,
+      girasol:parseFloat(localStorage.getItem('smz_fob_girasol'))|| 4,
     };
   },
   get descImp() {
@@ -1538,15 +1540,38 @@ function availableVencs(grain) {
     }));
 }
 
-// Cultivo seleccionado para las cards de Premio MATBA (con FOB MAGYP + MATBA + retenciones)
-const MATBA_GRAINS = [ {k:'soja',lbl:'Soja'}, {k:'maiz',lbl:'Maíz'}, {k:'trigo',lbl:'Trigo'} ];
+// Cultivos posibles en las cards de Premio MATBA. La lista que se muestra se
+// arma dinámicamente con los granos que A3 Info realmente trae (LIVE.matbaAuto).
+const MATBA_GRAIN_LABELS = { soja:'Soja', maiz:'Maíz', trigo:'Trigo', girasol:'Girasol' };
+const MATBA_GRAIN_ORDER  = ['soja','maiz','trigo','girasol'];
+function matbaGrains() {
+  const out = MATBA_GRAIN_ORDER
+    .filter(k => (LIVE.matbaAuto[k] || []).length > 0)
+    .map(k => ({ k, lbl: MATBA_GRAIN_LABELS[k] || k }));
+  return out.length ? out : [{ k:'soja', lbl:'Soja' }];
+}
 function getMatbaGrain() {
   const g = localStorage.getItem('smz_matba_grain');
-  return MATBA_GRAINS.some(x => x.k === g) ? g : 'soja';
+  const avail = matbaGrains();
+  return avail.some(x => x.k === g) ? g : avail[0].k;
 }
 function setMatbaGrain(g) {
-  if(MATBA_GRAINS.some(x => x.k === g)) localStorage.setItem('smz_matba_grain', g);
+  if(MATBA_GRAIN_LABELS[g]) localStorage.setItem('smz_matba_grain', g);
   renderMatbaCards();
+}
+// Editar Retenciones (%) y Fobbing (u$s) por cultivo desde las cards.
+// Persisten en las mismas claves que el panel ⚙ Parámetros, así quedan sincronizados.
+function setMatbaRet(grain, val) {
+  const n = parseFloat(val);
+  if(Number.isFinite(n) && n >= 0) localStorage.setItem('smz_ret_'+grain, n);
+  renderMatbaCards();
+  if(typeof renderFOBLiveTable === 'function') renderFOBLiveTable();
+}
+function setMatbaFob(grain, val) {
+  const n = parseFloat(val);
+  if(Number.isFinite(n) && n >= 0) localStorage.setItem('smz_fob_'+grain, n);
+  renderMatbaCards();
+  if(typeof renderFOBLiveTable === 'function') renderFOBLiveTable();
 }
 // Selección persistente de los 3 vencimientos a mostrar, por cultivo
 function vencSelKey(g) { return 'smz_vencs_' + g; }
@@ -1998,7 +2023,7 @@ function renderMatbaCards() {
   if(!wrap) return;
 
   const grain    = getMatbaGrain();
-  const grainLbl = (MATBA_GRAINS.find(x => x.k === grain) || {lbl:'Soja'}).lbl;
+  const grainLbl = MATBA_GRAIN_LABELS[grain] || 'Soja';
   const NCM_REV  = { soja:'12019000190C', maiz:'10059010120A', trigo:'10011900110H' };
 
   const src = document.getElementById('matba-source');
@@ -2014,9 +2039,9 @@ function renderMatbaCards() {
     }
   }
 
-  // Selector de cultivo (soja / maíz / trigo)
+  // Selector de cultivo — solo los granos que A3 Info realmente trae
   const grainSel = `<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${
-    MATBA_GRAINS.map(g => {
+    matbaGrains().map(g => {
       const on  = g.k === grain;
       const has = (LIVE.matbaAuto[g.k] || []).length > 0;
       return `<button onclick="setMatbaGrain('${g.k}')"
@@ -2073,7 +2098,10 @@ function renderMatbaCards() {
   }
 
   const retPct = ((LIVE_CFG.retenciones[grain]||0)*100).toFixed(1);
+  const fobVal = (LIVE_CFG.fobbing[grain]||0);
   const fobFch = (LIVE.fobFecha || '').replace(' *','');
+  // Estilo común para los inputs editables (Retenciones / Fobbing)
+  const inpSty = "width:54px;border:1px solid var(--border);border-radius:4px;padding:2px 5px;font-size:11px;font-weight:600;text-align:right;font-family:'Sora',sans-serif;background:var(--bg2);outline:none";
 
   wrap.innerHTML = grainSel + `
   <div style="font-size:9.5px;color:var(--text3);margin-bottom:10px;line-height:1.6">
@@ -2113,8 +2141,21 @@ function renderMatbaCards() {
         </div>
 
         ${row(`FOB Forward ${tgLive('MAGYP')}`, `MAGYP FOB oficial · ${grainLbl} NCM ${NCM_REV[grain]||'—'}${fobFch ? ' · '+fobFch : ''}`, r ? r.fob.toFixed(0)+' u$s' : '—')}
-        ${row(`Retenciones ${tgCalc}`, `(FOB − ${LIVE_CFG.descImp}) × ${retPct}%`, r ? '−'+r.retU.toFixed(0)+' u$s' : '—', 'color:var(--terracota)')}
-        ${row(`Fobbing ${tgParam}`, 'parámetro editable (⚙ Parámetros)', '−'+(LIVE_CFG.fobbing[grain]||0)+' u$s', 'color:var(--terracota)')}
+        <div class="fas-row">
+          <span class="fas-label" style="display:flex;flex-direction:column;line-height:1.25;gap:2px">
+            <span>Retenciones ${tgParam}</span>
+            <span style="font-size:8.5px;color:var(--text4);font-weight:400;display:flex;align-items:center;gap:3px;flex-wrap:wrap">(FOB − ${LIVE_CFG.descImp}) ×
+              <input type="number" step="0.5" min="0" value="${retPct}" onchange="setMatbaRet('${grain}',this.value)" title="Alícuota de retenciones de ${grainLbl}. Editable." style="${inpSty}">%</span>
+          </span>
+          <span class="fas-val" style="color:var(--terracota)">${r ? '−'+r.retU.toFixed(0)+' u$s' : '—'}</span>
+        </div>
+        <div class="fas-row">
+          <span class="fas-label" style="display:flex;flex-direction:column;line-height:1.25;gap:1px">
+            <span>Fobbing ${tgParam}</span>${sub('u$s/tn editable')}
+          </span>
+          <span class="fas-val" style="color:var(--terracota);display:flex;align-items:center;gap:3px;justify-content:flex-end">−
+            <input type="number" step="0.5" min="0" value="${fobVal}" onchange="setMatbaFob('${grain}',this.value)" title="Gastos de fobbing de ${grainLbl} (u$s/tn). Editable." style="${inpSty}"> u$s</span>
+        </div>
         <div class="fas-row fas-total">
           <span class="fas-label" style="display:flex;flex-direction:column;line-height:1.25;gap:1px">
             <span>FAS teórico ${tgCalc}</span>${sub('FOB − Retenciones − Fobbing')}
